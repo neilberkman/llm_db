@@ -72,25 +72,38 @@ jobs:
           chmod +x .github/workflows/scripts/generate_summary.sh
           .github/workflows/scripts/generate_summary.sh
 
+      - name: Create branch and commit changes
+        if: steps.changes.outputs.has_changes == 'true'
+        id: commit
+        run: |
+          BRANCH_NAME="metadata-update-${{ github.run_number }}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+          git add priv/llm_models/upstream/
+          git add priv/llm_models/snapshot.json
+          git add lib/llm_models/generated/valid_providers.ex
+
+          git commit -m "Update model metadata" \
+                     -m "Automated metadata update from upstream sources"
+
+          git push origin "$BRANCH_NAME"
+
       - name: Create Pull Request
         if: steps.changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          add-paths: |
-            priv/llm_models/upstream/
-            priv/llm_models/snapshot.json
-            lib/llm_models/generated/valid_providers.ex
-          commit-message: |
-            Update model metadata
-            
-            Automated metadata update from upstream sources
-          branch: metadata-update-${{ github.run_id }}
-          delete-branch: true
-          title: "Update model metadata - ${{ github.run_number }}"
-          body-path: /tmp/metadata_summary.md
-          labels: |
-            metadata-update
-            automated
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "${{ steps.commit.outputs.branch_name }}" \
+            --title "Update model metadata #${{ github.run_number }}" \
+            --body-file "/tmp/metadata_summary.md" \
+            --label "metadata-update" \
+            --label "automated"
 
       - name: Report no changes
         if: steps.changes.outputs.has_changes == 'false'
