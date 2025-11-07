@@ -130,7 +130,7 @@ defmodule LLMDb.SpecTest do
     end
   end
 
-  describe "parse_spec/1" do
+  describe "parse_spec/1 with colon format" do
     test "parses valid provider:model format" do
       assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec("openai:gpt-4")
     end
@@ -147,7 +147,7 @@ defmodule LLMDb.SpecTest do
       assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec("openai: gpt-4 ")
     end
 
-    test "returns error when no colon present" do
+    test "returns error when no separator present" do
       assert {:error, :invalid_format} = Spec.parse_spec("gpt-4")
     end
 
@@ -156,8 +156,7 @@ defmodule LLMDb.SpecTest do
     end
 
     test "returns error when provider is invalid" do
-      assert {:error, :bad_provider} = Spec.parse_spec(":model")
-      assert {:error, :bad_provider} = Spec.parse_spec("invalid@provider:model")
+      assert {:error, :empty_segment} = Spec.parse_spec(":model")
     end
 
     test "returns error for empty string" do
@@ -165,7 +164,267 @@ defmodule LLMDb.SpecTest do
     end
 
     test "handles edge case with only colon" do
-      assert {:error, :bad_provider} = Spec.parse_spec(":")
+      assert {:error, :empty_segment} = Spec.parse_spec(":")
+    end
+  end
+
+  describe "parse_spec/1 with @ format" do
+    test "parses valid model@provider format" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec("gpt-4@openai")
+    end
+
+    test "normalizes provider with hyphens in @ format" do
+      assert {:ok, {:google_vertex, "gemini-pro"}} =
+               Spec.parse_spec("gemini-pro@google-vertex")
+    end
+
+    test "trims whitespace from model ID in @ format" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec(" gpt-4 @openai")
+    end
+
+    test "returns error when provider is unknown in @ format" do
+      assert {:error, :unknown_provider} = Spec.parse_spec("model@unknown")
+    end
+
+    test "returns error when provider is invalid in @ format" do
+      assert {:error, :empty_segment} = Spec.parse_spec("model@")
+    end
+
+    test "handles edge case with only @ symbol" do
+      assert {:error, :empty_segment} = Spec.parse_spec("@")
+    end
+
+    test "parses models with dashes and dots" do
+      assert {:ok, {:openai, "gpt-4o-mini"}} = Spec.parse_spec("gpt-4o-mini@openai")
+    end
+  end
+
+  describe "parse_spec/2 with explicit format" do
+    test "parses with explicit :colon format" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec("openai:gpt-4", format: :colon)
+    end
+
+    test "parses with explicit :at format" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec("gpt-4@openai", format: :at)
+    end
+
+    test "returns error for ambiguous input without explicit format" do
+      assert {:error, :ambiguous_format} = Spec.parse_spec("provider:model@ambiguous")
+    end
+
+    test "rejects @ in model segment even with explicit :colon format" do
+      assert {:error, :invalid_chars} =
+               Spec.parse_spec("openai:model@ambiguous", format: :colon)
+    end
+
+    test "rejects colon in model segment even with explicit :at format" do
+      assert {:error, :invalid_chars} = Spec.parse_spec("provider:model@anthropic", format: :at)
+    end
+  end
+
+  describe "parse_spec/2 with tuple input" do
+    test "accepts tuple format" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec({:openai, "gpt-4"})
+    end
+
+    test "ignores format option for tuple input" do
+      assert {:ok, {:openai, "gpt-4"}} = Spec.parse_spec({:openai, "gpt-4"}, format: :at)
+    end
+  end
+
+  describe "parse_spec!/1" do
+    test "returns tuple on success for colon format" do
+      assert {:openai, "gpt-4"} = Spec.parse_spec!("openai:gpt-4")
+    end
+
+    test "returns tuple on success for @ format" do
+      assert {:openai, "gpt-4"} = Spec.parse_spec!("gpt-4@openai")
+    end
+
+    test "raises ArgumentError on invalid format" do
+      assert_raise ArgumentError, ~r/invalid model spec/, fn ->
+        Spec.parse_spec!("no-separator")
+      end
+    end
+
+    test "raises ArgumentError on ambiguous format" do
+      assert_raise ArgumentError, ~r/ambiguous_format/, fn ->
+        Spec.parse_spec!("provider:model@ambiguous")
+      end
+    end
+
+    test "raises ArgumentError on unknown provider" do
+      assert_raise ArgumentError, ~r/unknown_provider/, fn ->
+        Spec.parse_spec!("unknown:model")
+      end
+    end
+  end
+
+  describe "format_spec/2" do
+    test "formats as provider:model by default" do
+      assert "openai:gpt-4" = Spec.format_spec({:openai, "gpt-4"})
+    end
+
+    test "formats with explicit :provider_colon_model" do
+      assert "openai:gpt-4" = Spec.format_spec({:openai, "gpt-4"}, :provider_colon_model)
+    end
+
+    test "formats as model@provider with :model_at_provider" do
+      assert "gpt-4@openai" = Spec.format_spec({:openai, "gpt-4"}, :model_at_provider)
+    end
+
+    test "formats as model@provider with :filename_safe" do
+      assert "gpt-4o-mini@openai" = Spec.format_spec({:openai, "gpt-4o-mini"}, :filename_safe)
+    end
+
+    test "handles providers with underscores" do
+      assert "gemini-pro@google_vertex" =
+               Spec.format_spec({:google_vertex, "gemini-pro"}, :model_at_provider)
+    end
+
+    test "raises on unknown format" do
+      assert_raise ArgumentError, ~r/unknown format/, fn ->
+        Spec.format_spec({:openai, "gpt-4"}, :invalid_format)
+      end
+    end
+  end
+
+  describe "build_spec/2" do
+    test "builds from colon format to @ format" do
+      assert "gpt-4@openai" = Spec.build_spec("openai:gpt-4", format: :filename_safe)
+    end
+
+    test "builds from @ format to colon format" do
+      assert "openai:gpt-4" = Spec.build_spec("gpt-4@openai", format: :provider_colon_model)
+    end
+
+    test "builds from tuple to @ format" do
+      assert "gpt-4@openai" = Spec.build_spec({:openai, "gpt-4"}, format: :model_at_provider)
+    end
+
+    test "builds from tuple to colon format" do
+      assert "openai:gpt-4" = Spec.build_spec({:openai, "gpt-4"}, format: :provider_colon_model)
+    end
+
+    test "uses default format when not specified" do
+      result = Spec.build_spec("openai:gpt-4")
+      assert result == "openai:gpt-4"
+    end
+  end
+
+  describe "normalize_spec/1" do
+    test "normalizes colon format to tuple" do
+      assert {:openai, "gpt-4"} = Spec.normalize_spec("openai:gpt-4")
+    end
+
+    test "normalizes @ format to tuple" do
+      assert {:openai, "gpt-4"} = Spec.normalize_spec("gpt-4@openai")
+    end
+
+    test "passes through tuple unchanged" do
+      assert {:openai, "gpt-4"} = Spec.normalize_spec({:openai, "gpt-4"})
+    end
+
+    test "raises on invalid input" do
+      assert_raise ArgumentError, fn ->
+        Spec.normalize_spec("no-separator")
+      end
+    end
+  end
+
+  describe "validation rules" do
+    test "rejects empty provider segment in colon format" do
+      assert {:error, :empty_segment} = Spec.parse_spec(":gpt-4")
+    end
+
+    test "rejects empty model segment in colon format" do
+      assert {:error, :empty_segment} = Spec.parse_spec("openai:")
+    end
+
+    test "rejects empty provider segment in @ format" do
+      assert {:error, :empty_segment} = Spec.parse_spec("gpt-4@")
+    end
+
+    test "rejects empty model segment in @ format" do
+      assert {:error, :empty_segment} = Spec.parse_spec("@openai")
+    end
+
+    test "rejects @ in provider segment (ambiguous format)" do
+      assert {:error, :ambiguous_format} = Spec.parse_spec("open@ai:gpt-4")
+    end
+
+    test "rejects colon in provider segment (ambiguous format)" do
+      assert {:error, :ambiguous_format} = Spec.parse_spec("gpt-4@open:ai")
+    end
+
+    test "allows colons in model ID for colon format" do
+      assert {:ok, {:openai, "model:with:colons"}} =
+               Spec.parse_spec("openai:model:with:colons")
+    end
+
+    test "rejects @ in model ID for colon format (ambiguous)" do
+      assert {:error, :ambiguous_format} = Spec.parse_spec("openai:model@with@ats")
+    end
+
+    test "rejects colon in model ID for @ format (ambiguous)" do
+      assert {:error, :ambiguous_format} = Spec.parse_spec("model:with:colons@openai")
+    end
+
+    test "with explicit format: rejects @ in provider for colon format" do
+      assert {:error, :invalid_chars} = Spec.parse_spec("open@ai:model", format: :colon)
+    end
+
+    test "with explicit format: rejects : in provider for @ format" do
+      assert {:error, :invalid_chars} = Spec.parse_spec("model@open:ai", format: :at)
+    end
+
+    test "with explicit format: rejects @ in model for colon format" do
+      assert {:error, :invalid_chars} = Spec.parse_spec("openai:model@test", format: :colon)
+    end
+
+    test "with explicit format: rejects : in model for @ format" do
+      assert {:error, :invalid_chars} = Spec.parse_spec("model:test@openai", format: :at)
+    end
+  end
+
+  describe "round-trip parsing and formatting" do
+    test "colon format round-trips correctly" do
+      original = "openai:gpt-4"
+      {:ok, spec} = Spec.parse_spec(original)
+      formatted = Spec.format_spec(spec, :provider_colon_model)
+      assert formatted == original
+    end
+
+    test "@ format round-trips correctly" do
+      original = "gpt-4@openai"
+      {:ok, spec} = Spec.parse_spec(original)
+      formatted = Spec.format_spec(spec, :model_at_provider)
+      assert formatted == original
+    end
+
+    test "can convert between formats" do
+      colon_format = "openai:gpt-4"
+      {:ok, spec} = Spec.parse_spec(colon_format)
+
+      at_format = Spec.format_spec(spec, :model_at_provider)
+      assert at_format == "gpt-4@openai"
+
+      {:ok, spec2} = Spec.parse_spec(at_format)
+      assert spec == spec2
+    end
+
+    test "round-trips with complex Bedrock model IDs in colon format" do
+      original = "bedrock:anthropic.claude-opus-4-1-20250805-v1:0"
+      {:ok, spec} = Spec.parse_spec(original)
+      formatted = Spec.format_spec(spec, :provider_colon_model)
+      assert formatted == original
+    end
+
+    test "round-trips with complex model IDs in @ format" do
+      original = "gpt-4o-mini@openai"
+      {:ok, spec} = Spec.parse_spec(original)
+      formatted = Spec.format_spec(spec, :model_at_provider)
+      assert formatted == original
     end
   end
 
