@@ -4,10 +4,11 @@ defmodule LLMDb.Sources.OpenRouterTest do
   alias LLMDb.Sources.OpenRouter
 
   setup do
-    File.rm_rf!("priv/llm_db/upstream")
+    # Clean up test cache directory
+    File.rm_rf!("tmp/test/upstream")
 
     on_exit(fn ->
-      File.rm_rf!("priv/llm_db/upstream")
+      File.rm_rf!("tmp/test/upstream")
     end)
 
     :ok
@@ -146,7 +147,7 @@ defmodule LLMDb.Sources.OpenRouterTest do
       }
 
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/openrouter-#{hash}.json"
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, Jason.encode!(cache_data))
@@ -198,7 +199,7 @@ defmodule LLMDb.Sources.OpenRouterTest do
       }
 
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/openrouter-#{hash}.json"
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, Jason.encode!(cache_data))
@@ -229,7 +230,7 @@ defmodule LLMDb.Sources.OpenRouterTest do
       }
 
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/openrouter-#{hash}.json"
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, Jason.encode!(cache_data))
@@ -258,7 +259,7 @@ defmodule LLMDb.Sources.OpenRouterTest do
       }
 
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/openrouter-#{hash}.json"
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, Jason.encode!(cache_data))
@@ -278,7 +279,7 @@ defmodule LLMDb.Sources.OpenRouterTest do
     test "returns error on invalid JSON" do
       test_url = "https://invalid.openrouter.ai/api/v1/models"
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/openrouter-#{hash}.json"
+      cache_path = "tmp/test/upstream/openrouter-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, "not json")

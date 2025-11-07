@@ -31,7 +31,7 @@ defmodule LLMDb do
   ## Examples
 
       # Get all providers
-      providers = LLMDb.provider()
+      providers = LLMDb.providers()
 
       # Get a specific provider
       {:ok, provider} = LLMDb.provider(:openai)

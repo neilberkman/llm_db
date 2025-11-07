@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-07T18:04:40.154743Z",
+  "generated_at": "2025-11-07T18:07:55.108877Z",
   "providers": {
     "z-ai": {
       "id": "z-ai",
@@ -11258,12 +11258,59 @@
       "name": "Fireworks AI"
     },
     "amazon_bedrock": {
-      "doc": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+      "base_url": "https://bedrock-runtime.{region}.amazonaws.com",
+      "config_schema": [
+        {
+          "default": "us-east-1",
+          "doc": "AWS region where Bedrock is available",
+          "name": "region",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "Bedrock API key for simplified authentication (alternative to IAM credentials)",
+          "name": "api_key",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "AWS Access Key ID for IAM authentication",
+          "name": "access_key_id",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "AWS Secret Access Key for IAM authentication",
+          "name": "secret_access_key",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "AWS Session Token for temporary credentials",
+          "name": "session_token",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "Force use of Bedrock Converse API (default: auto-detect based on tools presence)",
+          "name": "use_converse",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "doc": "https://docs.aws.amazon.com/bedrock/",
       "env": [
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
-        "AWS_REGION"
+        "AWS_BEARER_TOKEN_BEDROCK"
       ],
+      "extra": {
+        "auth_patterns": [
+          "bearer_token",
+          "sigv4"
+        ],
+        "default_api": "converse"
+      },
       "id": "amazon_bedrock",
       "models": {
         "qwen.qwen3-coder-30b-a3b-v1:0": {
@@ -11857,12 +11904,18 @@
           "release_date": "2025-05-22"
         },
         "meta.llama3-3-70b-instruct-v1:0": {
-          "aliases": [],
+          "aliases": [
+            "us.meta.llama3-3-70b-instruct-v1:0",
+            "eu.meta.llama3-3-70b-instruct-v1:0",
+            "ap.meta.llama3-3-70b-instruct-v1:0",
+            "ca.meta.llama3-3-70b-instruct-v1:0",
+            "global.meta.llama3-3-70b-instruct-v1:0"
+          ],
           "capabilities": {
             "chat": true,
             "embeddings": false,
             "json": {
-              "native": false,
+              "native": true,
               "schema": false,
               "strict": false
             },
@@ -11881,22 +11934,28 @@
             }
           },
           "cost": {
-            "input": 0.72,
-            "output": 0.72
+            "input": 0.265,
+            "output": 0.354
           },
           "deprecated": false,
           "extra": {
             "attachment": false,
+            "known_limitations": [
+              "Tools not supported in streaming mode",
+              "Integer type coercion issues (integers >= 2^31 may be dropped)",
+              "Tool calls may be returned as JSON text strings instead of structured objects"
+            ],
             "open_weights": true,
+            "requires_converse": true,
             "temperature": true
           },
-          "family": "meta.llama3-3-70b-instruct",
+          "family": "llama",
           "id": "meta.llama3-3-70b-instruct-v1:0",
           "knowledge": "2023-12",
           "last_updated": "2024-12-06",
           "limits": {
             "context": 128000,
-            "output": 4096
+            "output": 2048
           },
           "modalities": {
             "input": [
@@ -11906,13 +11965,19 @@
               "text"
             ]
           },
-          "name": "Llama 3.3 70B Instruct",
+          "name": "Meta Llama 3.3 70B Instruct",
           "provider": "amazon_bedrock",
           "provider_model_id": "meta.llama3-3-70b-instruct-v1:0",
-          "release_date": "2024-12-06"
+          "release_date": "2024-12-01"
         },
         "anthropic.claude-opus-4-1-20250805-v1:0": {
-          "aliases": [],
+          "aliases": [
+            "us.anthropic.claude-opus-4-1-20250805-v1:0",
+            "eu.anthropic.claude-opus-4-1-20250805-v1:0",
+            "ap.anthropic.claude-opus-4-1-20250805-v1:0",
+            "ca.anthropic.claude-opus-4-1-20250805-v1:0",
+            "global.anthropic.claude-opus-4-1-20250805-v1:0"
+          ],
           "capabilities": {
             "chat": true,
             "embeddings": false,
@@ -11922,38 +11987,41 @@
               "strict": false
             },
             "reasoning": {
-              "enabled": true
+              "enabled": true,
+              "token_budget": 10000
             },
             "streaming": {
               "text": true,
-              "tool_calls": false
+              "tool_calls": true
             },
             "tools": {
               "enabled": true,
-              "parallel": false,
-              "streaming": false,
+              "parallel": true,
+              "streaming": true,
               "strict": false
             }
           },
           "cost": {
             "cache_read": 1.5,
             "cache_write": 18.75,
-            "input": 15,
-            "output": 75
+            "input": 15.0,
+            "output": 75.0
           },
           "deprecated": false,
           "extra": {
             "attachment": true,
             "open_weights": false,
+            "requires_converse": true,
+            "supports_thinking": true,
             "temperature": true
           },
-          "family": "anthropic.claude-opus-4-1-20250805",
+          "family": "claude",
           "id": "anthropic.claude-opus-4-1-20250805-v1:0",
           "knowledge": "2025-03-31",
           "last_updated": "2025-08-05",
           "limits": {
             "context": 200000,
-            "output": 32000
+            "output": 16384
           },
           "modalities": {
             "input": [
@@ -35304,14 +35372,95 @@
       "name": "OpenCode Zen"
     },
     "google_vertex": {
-      "doc": "https://cloud.google.com/vertex-ai/generative-ai/docs/models",
-      "env": [
-        "GOOGLE_VERTEX_PROJECT",
-        "GOOGLE_VERTEX_LOCATION",
-        "GOOGLE_APPLICATION_CREDENTIALS"
+      "base_url": "https://{region}-aiplatform.googleapis.com",
+      "config_schema": [
+        {
+          "doc": "Path to service account JSON file (can also use GOOGLE_APPLICATION_CREDENTIALS env var)",
+          "name": "service_account_json",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "doc": "Google Cloud project ID (can also use GOOGLE_CLOUD_PROJECT env var)",
+          "name": "project_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "default": "global",
+          "doc": "Google Cloud region where Vertex AI is available (default 'global' for newest models)",
+          "name": "region",
+          "required": false,
+          "type": "string"
+        }
       ],
+      "doc": "https://cloud.google.com/vertex-ai/docs",
+      "env": [
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "GOOGLE_CLOUD_PROJECT"
+      ],
+      "extra": {
+        "auth_pattern": "service_account",
+        "supports_anthropic_models": true,
+        "supports_gemini_models": true
+      },
       "id": "google_vertex",
       "models": {
+        "claude-haiku-4-5@20251001": {
+          "aliases": [
+            "claude-haiku-4-5@latest"
+          ],
+          "capabilities": {
+            "chat": true,
+            "embeddings": false,
+            "json": {
+              "native": false,
+              "schema": false,
+              "strict": false
+            },
+            "reasoning": {
+              "enabled": false
+            },
+            "streaming": {
+              "text": true,
+              "tool_calls": true
+            },
+            "tools": {
+              "enabled": true,
+              "parallel": true,
+              "streaming": true,
+              "strict": false
+            }
+          },
+          "cost": {
+            "input": 0.8,
+            "output": 4.0
+          },
+          "deprecated": false,
+          "extra": {
+            "supports_thinking": false,
+            "vertex_model_path": "publishers/anthropic/models/claude-haiku-4-5"
+          },
+          "family": "claude",
+          "id": "claude-haiku-4-5@20251001",
+          "limits": {
+            "context": 200000,
+            "output": 8192
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "name": "Claude Haiku 4.5",
+          "provider": "google_vertex",
+          "provider_model_id": "claude-haiku-4-5@20251001",
+          "release_date": "2025-10-01"
+        },
         "gemini-2.0-flash": {
           "aliases": [],
           "capabilities": {
@@ -36188,7 +36337,7 @@
           "release_date": "2025-09-25"
         }
       },
-      "name": "Vertex"
+      "name": "Google Vertex AI"
     },
     "zhipuai_coding_plan": {
       "doc": "https://docs.bigmodel.cn/cn/coding-plan/overview",

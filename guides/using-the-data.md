@@ -13,7 +13,7 @@ Query, filter, and access LLM model metadata at runtime.
 # Runtime overrides
 {:ok, snapshot} = LLMDb.load(
   runtime_overrides: %{
-    filters: %{
+    filter: %{
       allow: %{openai: :all, anthropic: ["claude-3*"]},
       deny: %{openai: ["*-deprecated"]}
     },
@@ -33,7 +33,11 @@ Query, filter, and access LLM model metadata at runtime.
 ### Reload
 
 ```elixir
-{:ok, snapshot} = LLMDb.reload()
+# Reload with default configuration
+{:ok, snapshot} = LLMDb.load()
+
+# Reload with new runtime overrides
+{:ok, snapshot} = LLMDb.load(runtime_overrides: %{filter: %{allow: :all, deny: %{}}})
 ```
 
 ### Storage
@@ -89,48 +93,64 @@ Aliases auto-resolve:
 
 ## Capabilities
 
-Get capability keys for filtering:
+Get capabilities map for a model:
 
 ```elixir
+{:ok, model} = LLMDb.model("openai:gpt-4o-mini")
 LLMDb.capabilities(model)
-# => [:chat, :tools, :json_native, :streaming_text, ...]
+# => %{chat: true, tools: %{enabled: true, ...}, json: %{native: true, ...}, ...}
 
-LLMDb.capabilities({:openai, "gpt-4"})
-LLMDb.capabilities("openai:gpt-4")
+LLMDb.capabilities({:openai, "gpt-4o-mini"})
+# => %{chat: true, tools: %{enabled: true, ...}, ...}
+
+LLMDb.capabilities("openai:gpt-4o-mini")
+# => %{chat: true, ...}
 ```
 
 ## Model Selection
 
-Select models by requirements:
+Select models by capability requirements:
 
 ```elixir
-# Basic requirements
-models = LLMDb.select(require: [tools: true])
+# Select first match
+{:ok, {provider, id}} = LLMDb.select(require: [tools: true])
 
-models = LLMDb.select(
+{:ok, {provider, id}} = LLMDb.select(
   require: [json_native: true, chat: true]
 )
 
+# Get all matches
+specs = LLMDb.candidates(require: [tools: true])
+# => [{:openai, "gpt-4o"}, {:openai, "gpt-4o-mini"}, ...]
+
 # Forbid capabilities
-models = LLMDb.select(
+{:ok, {provider, id}} = LLMDb.select(
   require: [tools: true],
   forbid: [streaming_tool_calls: true]
 )
 
-# Provider preference
-models = LLMDb.select(
+# Provider preference (uses configured prefer as default, or override)
+{:ok, {provider, id}} = LLMDb.select(
   require: [chat: true],
   prefer: [:anthropic, :openai]
 )
 
 # Scope to provider
-models = LLMDb.select(
+{:ok, {provider, id}} = LLMDb.select(
   require: [tools: true],
   scope: :openai
 )
 
-# Combined
-models = LLMDb.select(
+# Combined - select first match
+{:ok, {provider, id}} = LLMDb.select(
+  require: [chat: true, json_native: true, tools: true],
+  forbid: [streaming_tool_calls: true],
+  prefer: [:openai, :anthropic],
+  scope: :all
+)
+
+# Combined - get all matches
+specs = LLMDb.candidates(
   require: [chat: true, json_native: true, tools: true],
   forbid: [streaming_tool_calls: true],
   prefer: [:openai, :anthropic],
@@ -145,7 +165,7 @@ models = LLMDb.select(
 ```elixir
 {:ok, _} = LLMDb.load(
   runtime_overrides: %{
-    filters: %{
+    filter: %{
       allow: %{
         openai: ["gpt-4*", "gpt-3.5*"],  # Globs
         anthropic: :all
@@ -160,33 +180,38 @@ models = LLMDb.select(
 
 **Rules**:
 - Deny wins over allow
-- Empty allow map denies all unless explicitly allowed
+- Empty allow map `%{}` behaves like `:all` (allows all)
 - `:all` allows all models from provider
-- Patterns: exact strings or globs with `*`
+- Patterns: exact strings, globs with `*`, or Regex `~r//`
+- Unknown providers in filters are warned and ignored
 
 ### Check Availability
 
 ```elixir
-LLMDb.allowed?(:openai, "gpt-4")           # => true
-LLMDb.allowed?(:openai, "gpt-4-deprecated") # => false
+LLMDb.allowed?("openai:gpt-4")               # => true
+LLMDb.allowed?({:openai, "gpt-4"})           # => true
+LLMDb.allowed?("openai:gpt-4-deprecated")    # => false
+
+{:ok, model} = LLMDb.model("openai:gpt-4")
+LLMDb.allowed?(model)                        # => true
 ```
 
 ## Spec Parsing
 
 ```elixir
-# Parse provider
+# Parse spec string to {provider, id} tuple
+{:ok, {:openai, "gpt-4"}} = LLMDb.parse("openai:gpt-4")
+{:ok, {:anthropic, "claude-3-5-sonnet-20241022"}} = LLMDb.parse("anthropic:claude-3-5-sonnet-20241022")
+LLMDb.parse("invalid")  # => {:error, :invalid_spec}
+
+# Parse also accepts tuples (passthrough)
+{:ok, {:openai, "gpt-4"}} = LLMDb.parse({:openai, "gpt-4"})
+
+# Advanced: Use LLMDb.Spec for additional functionality
 {:ok, :openai} = LLMDb.Spec.parse_provider("openai")
 LLMDb.Spec.parse_provider("unknown")  # => {:error, :unknown_provider}
 
-# Parse spec
 {:ok, {:openai, "gpt-4"}} = LLMDb.Spec.parse_spec("openai:gpt-4")
-LLMDb.Spec.parse_spec("invalid")  # => {:error, :invalid_spec}
-
-# Resolve (handles Bedrock inference profiles)
-{:ok, {:openai, "gpt-4"}} = LLMDb.Spec.resolve("openai:gpt-4", snapshot)
-
-{:ok, {:bedrock, "us.anthropic.claude-3-sonnet-20240229-v1:0"}} =
-  LLMDb.Spec.resolve("bedrock:us.anthropic.claude-3-sonnet-20240229-v1:0", snapshot)
 ```
 
 ## Runtime Overrides
@@ -196,7 +221,7 @@ Runtime overrides **only** affect filters and preferences, not provider/model da
 ```elixir
 {:ok, _} = LLMDb.load(
   runtime_overrides: %{
-    filters: %{allow: %{openai: ["gpt-4"]}, deny: %{}},
+    filter: %{allow: %{openai: ["gpt-4*"]}, deny: %{}},
     prefer: [:openai]
   }
 )
@@ -212,19 +237,22 @@ Triggers `LLMDb.Runtime.apply/2`:
 ### Pick JSON-native model, prefer OpenAI, forbid streaming tool calls
 
 ```elixir
-models = LLMDb.select(
+{:ok, {provider, id}} = LLMDb.select(
   require: [json_native: true],
   forbid: [streaming_tool_calls: true],
   prefer: [:openai]
 )
-model = List.first(models)
+{:ok, model} = LLMDb.model({provider, id})
 ```
 
 ### List Anthropic models with tools
 
 ```elixir
-models = LLMDb.select(require: [tools: true], scope: :anthropic)
-Enum.each(models, fn m -> IO.puts("#{m.id}: #{m.name}") end)
+specs = LLMDb.candidates(require: [tools: true], scope: :anthropic)
+Enum.each(specs, fn {provider, id} ->
+  {:ok, model} = LLMDb.model({provider, id})
+  IO.puts("#{model.id}: #{model.name}")
+end)
 ```
 
 ### Check spec availability
@@ -232,7 +260,7 @@ Enum.each(models, fn m -> IO.puts("#{m.id}: #{m.name}") end)
 ```elixir
 case LLMDb.model("openai:gpt-4") do
   {:ok, model} ->
-    if LLMDb.allowed?(model.provider, model.id) do
+    if LLMDb.allowed?(model) do
       IO.puts("✓ Available: #{model.name}")
     else
       IO.puts("✗ Filtered by allow/deny")
@@ -245,7 +273,12 @@ end
 ### Find cheapest model with capabilities
 
 ```elixir
-models = LLMDb.select(require: [chat: true, tools: true])
+specs = LLMDb.candidates(require: [chat: true, tools: true])
+
+models = 
+  for {provider, id} <- specs,
+      {:ok, model} <- [LLMDb.model({provider, id})],
+      do: model
 
 cheapest = 
   models

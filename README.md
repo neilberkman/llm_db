@@ -58,13 +58,20 @@ LLMDb.allowed?("openai:gpt-4o-mini") #=> true
 
 ## API Cheatsheet
 
-- **`model/1`** — `"provider:model"` → `%Model{}`
-- **`select/1`** — pick best `{provider, id}` by capabilities
-- **`providers/0`** — list `%Provider{}` structs
-- **`list_providers/0`** — provider IDs as atoms
-- **`get_provider/1`** — `%Provider{}` by ID
-- **`allowed?/1`** — check availability for a spec or tuple
-- **`reload/0`**, **`epoch/0`**, **`snapshot/0`** — lifecycle utilities
+- **`model/1`** — `"provider:model"` or `{:provider, id}` → `{:ok, %Model{}}` | `{:error, _}`
+- **`model/2`** — `provider` atom + `id` → `{:ok, %Model{}}` | `{:error, _}`
+- **`models/0`** — list all models → `[%Model{}]`
+- **`models/1`** — list provider's models → `[%Model{}]`
+- **`providers/0`** — list all providers → `[%Provider{}]`
+- **`provider/1`** — get provider by ID → `{:ok, %Provider{}}` | `:error`
+- **`select/1`** — pick first match by capabilities → `{:ok, {provider, id}}` | `{:error, :no_match}`
+- **`candidates/1`** — get all matches by capabilities → `[{provider, id}]`
+- **`capabilities/1`** — get capabilities map → `map()` | `nil`
+- **`allowed?/1`** — check availability → `boolean()`
+- **`parse/1`** — parse spec string → `{:ok, {provider, id}}` | `{:error, _}`
+- **`load/1`**, **`load/0`** — load or reload snapshot with optional runtime overrides
+- **`load_empty/1`** — load empty catalog (fallback when no snapshot available)
+- **`epoch/0`**, **`snapshot/0`** — diagnostics
 
 See the full function docs in [hexdocs](https://hexdocs.pm/llm_db).
 

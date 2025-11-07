@@ -4,11 +4,11 @@ defmodule LLMDb.Sources.ModelsDevTest do
   alias LLMDb.Sources.ModelsDev
 
   setup do
-    # Clean up upstream cache directory
-    File.rm_rf!("priv/llm_db/upstream")
+    # Clean up test cache directory
+    File.rm_rf!("tmp/test/upstream")
 
     on_exit(fn ->
-      File.rm_rf!("priv/llm_db/upstream")
+      File.rm_rf!("tmp/test/upstream")
     end)
 
     :ok
@@ -120,7 +120,7 @@ defmodule LLMDb.Sources.ModelsDevTest do
 
       # Determine cache path from URL
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/models-dev-#{hash}.json"
+      cache_path = "tmp/test/upstream/models-dev-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, Jason.encode!(cache_data))
@@ -148,7 +148,7 @@ defmodule LLMDb.Sources.ModelsDevTest do
     test "returns error on invalid JSON" do
       test_url = "https://invalid.example.com/api.json"
       hash = :crypto.hash(:sha256, test_url) |> Base.encode16(case: :lower) |> binary_part(0, 8)
-      cache_path = "priv/llm_db/upstream/models-dev-#{hash}.json"
+      cache_path = "tmp/test/upstream/models-dev-#{hash}.json"
 
       File.mkdir_p!(Path.dirname(cache_path))
       File.write!(cache_path, "not json")

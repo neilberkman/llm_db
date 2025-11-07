@@ -70,6 +70,9 @@ defmodule Mix.Tasks.LlmDb.Pull do
 
     Mix.shell().info("Pulling from configured sources...\n")
 
+    # Clean up old cache files before pulling
+    cleanup_old_cache_files()
+
     results = pull_all_sources(sources)
     print_summary(results)
 
@@ -155,4 +158,55 @@ defmodule Mix.Tasks.LlmDb.Pull do
   defp format_error({:http_status, status}), do: "HTTP #{status}"
   defp format_error(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp format_error(reason), do: inspect(reason)
+
+  # Clean up old cache files, keeping only the most recent version per URL hash
+  defp cleanup_old_cache_files do
+    upstream_dir = Application.get_env(:llm_db, :upstream_cache_dir, "priv/llm_db/upstream")
+
+    if File.dir?(upstream_dir) do
+      # Group files by hash prefix (before .json or .manifest.json)
+      upstream_dir
+      |> File.ls!()
+      |> Enum.filter(&String.ends_with?(&1, [".json", ".manifest.json"]))
+      |> Enum.group_by(&extract_hash/1)
+      |> Enum.each(fn {_hash, files} ->
+        # Keep only the most recent cache + manifest pair
+        keep_most_recent_only(upstream_dir, files)
+      end)
+    end
+  end
+
+  # Extract hash from filename (e.g., "models-dev-abc123.json" -> "models-dev-abc123")
+  defp extract_hash(filename) do
+    filename
+    |> String.replace_suffix(".manifest.json", "")
+    |> String.replace_suffix(".json", "")
+  end
+
+  # Keep only the most recent cache file and its manifest
+  defp keep_most_recent_only(dir, files) do
+    files_with_mtime =
+      files
+      |> Enum.map(fn file ->
+        path = Path.join(dir, file)
+
+        mtime =
+          case File.stat(path) do
+            {:ok, %{mtime: mtime}} -> mtime
+            _ -> {{1970, 1, 1}, {0, 0, 0}}
+          end
+
+        {file, path, mtime}
+      end)
+      |> Enum.sort_by(fn {_, _, mtime} -> mtime end, :desc)
+
+    # If we have more than 2 files (cache + manifest), remove older ones
+    if length(files_with_mtime) > 2 do
+      files_with_mtime
+      |> Enum.drop(2)
+      |> Enum.each(fn {_, path, _} ->
+        File.rm(path)
+      end)
+    end
+  end
 end
