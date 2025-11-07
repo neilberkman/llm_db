@@ -25,8 +25,7 @@ defmodule Mix.Tasks.LlmDb.Pull do
       config :llm_db,
         sources: [
           {LLMDb.Sources.ModelsDev, %{}},
-          {LLMDb.Sources.Local, %{dir: "priv/llm_db"}},
-          {LLMDb.Sources.Config, %{overrides: %{...}}}
+          {LLMDb.Sources.Local, %{dir: "priv/llm_db"}}
         ]
 
   Only sources that implement the optional `pull/1` callback will be pulled.

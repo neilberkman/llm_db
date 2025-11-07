@@ -1,51 +1,43 @@
 defmodule LLMDb.Sources.Config do
   @moduledoc """
-  Loads overrides from application configuration (environment-specific tweaks).
+  TEST-ONLY: Helper for injecting test data in tests.
 
-  ## Configuration Format
+  This module is NOT included in production builds. It exists solely to support
+  tests that need to inject provider/model data without creating TOML files.
 
-      config :llm_db,
-        overrides: %{
-          openai: %{
-            base_url: "https://staging-api.openai.com",
-            models: [
-              %{id: "gpt-4o", cost: %{input: 0.0, output: 0.0}},
-              %{id: "gpt-4o-mini", limits: %{context: 200_000}}
-            ]
-          },
-          anthropic: %{
-            base_url: "https://proxy.example.com/anthropic",
-            models: [
-              %{id: "claude-3-5-sonnet", cost: %{input: 0.0, output: 0.0}}
-            ]
-          }
+  Production users should use `LLMDb.Sources.Local` with TOML files for custom
+  model definitions.
+
+  ## Test Usage
+
+      # In tests
+      test_data = %{
+        openai: %{
+          id: :openai,
+          models: [%{id: "gpt-4o", provider: :openai}]
         }
+      }
+      
+      sources = [{LLMDb.Sources.Config, %{overrides: test_data}}]
+      {:ok, snapshot} = Engine.run(sources: sources)
 
-  ## Structure
+  ## Supported Formats
 
-  - Map keyed by provider atom (`:openai`, `:anthropic`, etc.)
-  - Each provider entry contains:
-    - Provider field overrides (e.g., `base_url`, `name`, `env`) merged directly
-    - `:models` - List of model overrides for that provider (special key)
+  ### Provider-keyed format (preferred)
 
-  ## Options
-
-  - `:overrides` - Map of provider overrides (required)
-
-  ## Examples
-
-      iex> Config.load(%{overrides: %{openai: %{base_url: "..."}}})
-      {:ok, %{"openai" => %{id: :openai, models: [...]}, ...}}
-
-  ## Back-compat
-
-  Also supports legacy format:
-
-      config :llm_db,
-        overrides: %{
-          providers: [...],
-          models: [...]
+      %{
+        openai: %{
+          base_url: "https://api.openai.com",
+          models: [%{id: "gpt-4o", ...}]
         }
+      }
+
+  ### Legacy format (providers/models keys)
+
+      %{
+        providers: [%{id: :openai, ...}],
+        models: [%{id: "gpt-4o", provider: :openai, ...}]
+      }
   """
 
   @behaviour LLMDb.Source

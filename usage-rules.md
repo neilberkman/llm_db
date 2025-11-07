@@ -59,9 +59,8 @@ mix llm_db.build
 ```elixir
 config :llm_db,
   sources: [
-    {LLMDb.Sources.ModelsDev, %{}},           # From upstream cache
-    {LLMDb.Sources.Local, %{dir: "priv/llm_db"}},  # From TOML files
-    {LLMDb.Sources.Config, %{overrides: %{}}} # From config
+    {LLMDb.Sources.ModelsDev, %{}},                    # From upstream cache
+    {LLMDb.Sources.Local, %{dir: "priv/llm_db"}}      # From TOML files (highest precedence)
   ]
 ```
 

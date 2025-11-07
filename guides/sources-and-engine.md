@@ -58,29 +58,13 @@ Outer map uses string keys; provider keys are atoms; model IDs are strings. Use 
 
 Structure: `provider.toml` + `models/{provider}/*.toml`. Atomizes keys, injects `:provider` from directory name.
 
-### Config
-
-```elixir
-{LLMDb.Sources.Config, %{
-  overrides: %{
-    openai: %{
-      "base_url" => "https://custom.endpoint",
-      "models" => %{"gpt-4" => %{"cost" => %{"input" => 4.5}}}
-    }
-  }
-}}
-```
-
-Provider-level and per-model overrides with deep merge.
-
 ## Configuring Sources
 
 ```elixir
 config :llm_db,
   sources: [
     {LLMDb.Sources.ModelsDev, %{}},
-    {LLMDb.Sources.Local, %{dir: "priv/llm_db"}},
-    {LLMDb.Sources.Config, %{overrides: %{...}}}
+    {LLMDb.Sources.Local, %{dir: "priv/llm_db"}}
   ]
 ```
 

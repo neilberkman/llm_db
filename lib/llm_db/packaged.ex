@@ -41,16 +41,14 @@ defmodule LLMDb.Packaged do
   @external_resource @compile_path
 
   # Compile-time integrity hash (computed only if file exists at compile time)
-  @snapshot_sha (
-                  if File.exists?(@compile_path) do
-                    @compile_path
-                    |> File.read!()
-                    |> then(&:crypto.hash(:sha256, &1))
-                    |> Base.encode16(case: :lower)
-                  else
-                    nil
-                  end
-                )
+  @snapshot_sha (if File.exists?(@compile_path) do
+                   @compile_path
+                   |> File.read!()
+                   |> then(&:crypto.hash(:sha256, &1))
+                   |> Base.encode16(case: :lower)
+                 else
+                   nil
+                 end)
 
   @doc """
   Returns the absolute path to the packaged snapshot file.
