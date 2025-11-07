@@ -1,10 +1,10 @@
 # Sources and Engine
 
-The Engine runs a build-time ETL pipeline that loads data from sources, normalizes, validates, merges, enriches, and indexes it, then writes `priv/llm_models/snapshot.json`. Runtime only loads the snapshot.
+The Engine runs a build-time ETL pipeline that loads data from sources, normalizes, validates, merges, enriches, and indexes it, then writes `priv/llm_db/snapshot.json`. Runtime only loads the snapshot.
 
 ## Source Behaviour
 
-All sources implement the `LLMModels.Source` behaviour:
+All sources implement the `LLMDb.Source` behaviour:
 
 ```elixir
 @callback load(opts :: map()) :: {:ok, data :: map()} | {:error, term()}
@@ -35,16 +35,16 @@ All sources implement the `LLMModels.Source` behaviour:
 }
 ```
 
-Outer map uses string keys; provider keys are atoms; model IDs are strings. Use `LLMModels.Source.assert_canonical!/1` for validation.
+Outer map uses string keys; provider keys are atoms; model IDs are strings. Use `LLMDb.Source.assert_canonical!/1` for validation.
 
 ## Built-in Sources
 
 ### ModelsDev (Remote)
 
 ```elixir
-{LLMModels.Sources.ModelsDev, %{
+{LLMDb.Sources.ModelsDev, %{
   url: "https://models.dev/api/models",
-  cache_path: "priv/llm_models/cache/models_dev.json"
+  cache_path: "priv/llm_db/cache/models_dev.json"
 }}
 ```
 
@@ -53,7 +53,7 @@ Outer map uses string keys; provider keys are atoms; model IDs are strings. Use 
 ### Local (TOML)
 
 ```elixir
-{LLMModels.Sources.Local, %{dir: "priv/llm_models"}}
+{LLMDb.Sources.Local, %{dir: "priv/llm_db"}}
 ```
 
 Structure: `provider.toml` + `models/{provider}/*.toml`. Atomizes keys, injects `:provider` from directory name.
@@ -61,7 +61,7 @@ Structure: `provider.toml` + `models/{provider}/*.toml`. Atomizes keys, injects 
 ### Config
 
 ```elixir
-{LLMModels.Sources.Config, %{
+{LLMDb.Sources.Config, %{
   overrides: %{
     openai: %{
       "base_url" => "https://custom.endpoint",
@@ -76,11 +76,11 @@ Provider-level and per-model overrides with deep merge.
 ## Configuring Sources
 
 ```elixir
-config :llm_models,
+config :llm_db,
   sources: [
-    {LLMModels.Sources.ModelsDev, %{}},
-    {LLMModels.Sources.Local, %{dir: "priv/llm_models"}},
-    {LLMModels.Sources.Config, %{overrides: %{...}}}
+    {LLMDb.Sources.ModelsDev, %{}},
+    {LLMDb.Sources.Local, %{dir: "priv/llm_db"}},
+    {LLMDb.Sources.Config, %{overrides: %{...}}}
   ]
 ```
 
@@ -88,11 +88,11 @@ Sources processed in order. Later sources override earlier ones.
 
 ## ETL Pipeline
 
-`LLMModels.Engine.run/1` executes 7 stages:
+`LLMDb.Engine.run/1` executes 7 stages:
 
 1. **Ingest**: Load sources, validate canonical format, flatten nested provider data
 2. **Normalize**: Convert provider IDs to atoms, normalize modalities to atoms, parse dates
-3. **Validate**: Zoi validation via `LLMModels.Validate`, drop invalid, log warnings
+3. **Validate**: Zoi validation via `LLMDb.Validate`, drop invalid, log warnings
 4. **Merge**: Last-wins precedence; `:aliases` are unioned, other lists replaced, maps deep merged
 5. **Filter**: Compile allow/deny patterns (deny wins, globs supported)
 6. **Enrich**: Derive `:family`, fill `:provider_model_id`, apply capability defaults
@@ -102,14 +102,14 @@ Final check warns if zero providers/models.
 
 ## Mix Tasks
 
-- `mix llm_models.pull` - Fetch and cache remote sources
-- `mix llm_models.build` - Run ETL, write `priv/llm_models/snapshot.json` and `lib/llm_models/generated/valid_providers.ex`
+- `mix llm_db.pull` - Fetch and cache remote sources
+- `mix llm_db.build` - Run ETL, write `priv/llm_db/snapshot.json` and `lib/llm_db/generated/valid_providers.ex`
 
 ## Custom Source Example
 
 ```elixir
 defmodule MyApp.InternalModels do
-  @behaviour LLMModels.Source
+  @behaviour LLMDb.Source
 
   @impl true
   def load(_opts) do
@@ -121,5 +121,5 @@ defmodule MyApp.InternalModels do
 end
 
 # config.exs
-config :llm_models, sources: [{MyApp.InternalModels, %{}}]
+config :llm_db, sources: [{MyApp.InternalModels, %{}}]
 ```

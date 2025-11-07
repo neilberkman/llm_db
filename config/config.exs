@@ -1,24 +1,24 @@
 import Config
 
 # LLM Models configuration
-config :llm_models,
+config :llm_db,
   # Default sources for loading model metadata (first = lowest precedence, last = highest)
   sources: [
-    {LLMModels.Sources.ModelsDev, %{}},
-    {LLMModels.Sources.Local, %{dir: "priv/llm_models/local"}},
-    {LLMModels.Sources.Config,
-     %{overrides: Application.compile_env(:llm_models, :overrides, %{})}}
+    {LLMDb.Sources.ModelsDev, %{}},
+    {LLMDb.Sources.Local, %{dir: "priv/llm_db/local"}},
+    {LLMDb.Sources.Config,
+     %{overrides: Application.compile_env(:llm_db, :overrides, %{})}}
   ],
 
   # Cache directory for remote sources
-  models_dev_cache_dir: "priv/llm_models/upstream",
-  upstream_cache_dir: "priv/llm_models/upstream"
+  models_dev_cache_dir: "priv/llm_db/upstream",
+  upstream_cache_dir: "priv/llm_db/upstream"
 
 if Mix.env() == :dev do
   config :git_ops,
-    mix_project: LLMModels.MixProject,
+    mix_project: LLMDb.MixProject,
     changelog_file: "CHANGELOG.md",
-    repository_url: "https://github.com/agentjido/llm_models",
+    repository_url: "https://github.com/agentjido/llm_db",
     manage_mix_version?: false,
     manage_readme_version: false,
     version_tag_prefix: "v"

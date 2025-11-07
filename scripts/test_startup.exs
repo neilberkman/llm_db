@@ -1,15 +1,15 @@
 #!/usr/bin/env elixir
 
-# Test script to verify LLMModels catalog loads automatically on application start
+# Test script to verify LLMDb catalog loads automatically on application start
 
 # Ensure all dependencies are on the code path
 Path.wildcard("_build/dev/lib/*/ebin")
 |> Enum.each(&Code.prepend_path/1)
 
-IO.puts("Starting LLMModels application...")
+IO.puts("Starting LLMDb application...")
 
 # Start the application
-result = Application.ensure_all_started(:llm_models)
+result = Application.ensure_all_started(:llm_db)
 case result do
   {:ok, _} -> :ok
   {:error, reason} ->
@@ -21,7 +21,7 @@ IO.puts("✓ Application started")
 
 # Test 1: Verify snapshot is loaded
 IO.puts("\nTest 1: Snapshot loaded?")
-snapshot = LLMModels.snapshot()
+snapshot = LLMDb.snapshot()
 if snapshot != nil do
   IO.puts("✓ Snapshot is loaded")
 else
@@ -31,7 +31,7 @@ end
 
 # Test 2: Query a model without calling load()
 IO.puts("\nTest 2: Query model without explicit load()")
-case LLMModels.model("openai:gpt-4o-mini") do
+case LLMDb.model("openai:gpt-4o-mini") do
   {:ok, model} ->
     IO.puts("✓ Successfully retrieved: #{model.id}")
     IO.puts("  Provider: #{model.provider}")
@@ -43,7 +43,7 @@ end
 
 # Test 3: Get all providers
 IO.puts("\nTest 3: Get all providers")
-providers = LLMModels.provider()
+providers = LLMDb.provider()
 if length(providers) > 0 do
   IO.puts("✓ Found #{length(providers)} providers:")
   Enum.each(providers, fn p -> IO.puts("  - #{p.id}") end)
@@ -54,7 +54,7 @@ end
 
 # Test 4: Select a model
 IO.puts("\nTest 4: Select a model with requirements")
-case LLMModels.select(require: [chat: true, tools: true], prefer: [:openai]) do
+case LLMDb.select(require: [chat: true, tools: true], prefer: [:openai]) do
   {:ok, {provider, model_id}} ->
     IO.puts("✓ Selected: #{provider}:#{model_id}")
   {:error, reason} ->
@@ -64,10 +64,10 @@ end
 
 # Test 5: Model struct API support
 IO.puts("\nTest 5: Model struct API support")
-case LLMModels.model("openai:gpt-4o-mini") do
+case LLMDb.model("openai:gpt-4o-mini") do
   {:ok, model} ->
     # Test allowed? with Model struct
-    if LLMModels.allowed?(model) do
+    if LLMDb.allowed?(model) do
       IO.puts("✓ allowed?(model) works")
     else
       IO.puts("✗ FAIL: allowed?(model) returned false")
@@ -75,7 +75,7 @@ case LLMModels.model("openai:gpt-4o-mini") do
     end
     
     # Test capabilities with Model struct
-    caps = LLMModels.capabilities(model)
+    caps = LLMDb.capabilities(model)
     if caps != nil and caps.chat == true do
       IO.puts("✓ capabilities(model) works")
     else

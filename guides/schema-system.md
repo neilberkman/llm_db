@@ -1,6 +1,6 @@
 # Schema System
 
-Provider and Model schemas are defined using [Zoi](https://hexdocs.pm/zoi). Validation occurs at build time (ETL pipeline via `LLMModels.Validate`) and runtime (struct construction via `new/1`).
+Provider and Model schemas are defined using [Zoi](https://hexdocs.pm/zoi). Validation occurs at build time (ETL pipeline via `LLMDb.Validate`) and runtime (struct construction via `new/1`).
 
 ## Provider Schema
 
@@ -24,11 +24,11 @@ provider_data = %{
   "doc" => "https://platform.openai.com/docs"
 }
 
-{:ok, provider} = LLMModels.Provider.new(provider_data)
-provider = LLMModels.Provider.new!(provider_data)
+{:ok, provider} = LLMDb.Provider.new(provider_data)
+provider = LLMDb.Provider.new!(provider_data)
 ```
 
-See `LLMModels.Schema.Provider` and `LLMModels.Provider` for details.
+See `LLMDb.Schema.Provider` and `LLMDb.Provider` for details.
 
 ## Model Schema
 
@@ -76,10 +76,10 @@ model_data = %{
   }
 }
 
-{:ok, model} = LLMModels.Model.new(model_data)
+{:ok, model} = LLMDb.Model.new(model_data)
 ```
 
-See `LLMModels.Schema.Model` and `LLMModels.Model` for details.
+See `LLMDb.Schema.Model` and `LLMDb.Model` for details.
 
 ## Nested Schemas
 
@@ -120,7 +120,7 @@ See `LLMModels.Schema.Model` and `LLMModels.Model` for details.
 }
 ```
 
-Defaults applied during Enrich stage: booleans default to `false`, optional values to `nil`. See `LLMModels.Schema.Capabilities`.
+Defaults applied during Enrich stage: booleans default to `false`, optional values to `nil`. See `LLMDb.Schema.Capabilities`.
 
 ### Limits
 
@@ -131,7 +131,7 @@ Defaults applied during Enrich stage: booleans default to `false`, optional valu
 }
 ```
 
-See `LLMModels.Schema.Limits`.
+See `LLMDb.Schema.Limits`.
 
 ### Cost
 
@@ -150,7 +150,7 @@ Pricing per million tokens (USD):
 }
 ```
 
-See `LLMModels.Schema.Cost`.
+See `LLMDb.Schema.Cost`.
 
 ## Validation APIs
 
@@ -158,10 +158,10 @@ See `LLMModels.Schema.Cost`.
 
 ```elixir
 # Returns {:ok, valid_providers, dropped_count}
-{:ok, providers, dropped} = LLMModels.Validate.validate_providers(provider_list)
+{:ok, providers, dropped} = LLMDb.Validate.validate_providers(provider_list)
 
 # Returns {:ok, valid_models, dropped_count}
-{:ok, models, dropped} = LLMModels.Validate.validate_models(model_list)
+{:ok, models, dropped} = LLMDb.Validate.validate_models(model_list)
 ```
 
 Invalid entries are dropped and logged as warnings.
@@ -170,12 +170,12 @@ Invalid entries are dropped and logged as warnings.
 
 ```elixir
 # Returns {:ok, struct} or {:error, reason}
-{:ok, provider} = LLMModels.Provider.new(provider_map)
-{:ok, model} = LLMModels.Model.new(model_map)
+{:ok, provider} = LLMDb.Provider.new(provider_map)
+{:ok, model} = LLMDb.Model.new(model_map)
 
 # Raises on validation error
-provider = LLMModels.Provider.new!(provider_map)
-model = LLMModels.Model.new!(model_map)
+provider = LLMDb.Provider.new!(provider_map)
+model = LLMDb.Model.new!(model_map)
 ```
 
 ## The `extra` Field

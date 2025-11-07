@@ -1,7 +1,7 @@
 # LLM Models
 
-[![Hex.pm](https://img.shields.io/hexpm/v/llm_models.svg)](https://hex.pm/packages/llm_models)
-[![License](https://img.shields.io/hexpm/l/llm_models.svg)](https://github.com/agentjido/llm_models/blob/main/LICENSE)
+[![Hex.pm](https://img.shields.io/hexpm/v/llm_db.svg)](https://hex.pm/packages/llm_db)
+[![License](https://img.shields.io/hexpm/l/llm_db.svg)](https://github.com/agentjido/llm_db/blob/main/LICENSE)
 
 LLM model metadata catalog with fast, capability-aware lookups. Use simple `"provider:model"` specs, get validated Provider/Model structs, and select models by capabilities. Ships with a packaged snapshot; no network required by default.
 
@@ -16,7 +16,7 @@ Model metadata is refreshed regularly, so versions follow a date-based format (`
 ```elixir
 def deps do
   [
-    {:llm_models, "~> 2025.11.0"}
+    {:llm_db, "~> 2025.11.0"}
   ]
 end
 ```
@@ -28,32 +28,32 @@ A `model_spec` is `"provider:model"` (e.g., `"openai:gpt-4o-mini"`).
 Use it to fetch model structs or resolve identifiers. Tuples `{:provider_atom, "id"}` also work, but prefer the string spec.
 
 ```elixir
-{:ok, model} = LLMModels.model("openai:gpt-4o-mini")
-#=> %LLMModels.Model{id: "gpt-4o-mini", provider: :openai, ...}
+{:ok, model} = LLMDb.model("openai:gpt-4o-mini")
+#=> %LLMDb.Model{id: "gpt-4o-mini", provider: :openai, ...}
 ```
 
 ## Quick Start
 
 ```elixir
 # Get a model and read metadata
-{:ok, model} = LLMModels.model("openai:gpt-4o-mini")
+{:ok, model} = LLMDb.model("openai:gpt-4o-mini")
 model.capabilities.tools.enabled  #=> true
 model.cost.input                  #=> 0.15  (per 1M tokens)
 model.limits.context              #=> 128_000
 
 # Select a model by capabilities (returns {provider, id})
-{:ok, {provider, id}} = LLMModels.select(
+{:ok, {provider, id}} = LLMDb.select(
   require: [chat: true, tools: true, json_native: true],
   prefer:  [:openai, :anthropic]
 )
-{:ok, model} = LLMModels.model({provider, id})
+{:ok, model} = LLMDb.model({provider, id})
 
 # List providers
-LLMModels.providers()
-#=> [%LLMModels.Provider{id: :anthropic, ...}, %LLMModels.Provider{id: :openai, ...}]
+LLMDb.providers()
+#=> [%LLMDb.Provider{id: :anthropic, ...}, %LLMDb.Provider{id: :openai, ...}]
 
 # Check availability (allow/deny filters)
-LLMModels.allowed?("openai:gpt-4o-mini") #=> true
+LLMDb.allowed?("openai:gpt-4o-mini") #=> true
 ```
 
 ## API Cheatsheet
@@ -66,14 +66,14 @@ LLMModels.allowed?("openai:gpt-4o-mini") #=> true
 - **`allowed?/1`** — check availability for a spec or tuple
 - **`reload/0`**, **`epoch/0`**, **`snapshot/0`** — lifecycle utilities
 
-See the full function docs in [hexdocs](https://hexdocs.pm/llm_models).
+See the full function docs in [hexdocs](https://hexdocs.pm/llm_db).
 
 ## Data Structures
 
 ### Provider
 
 ```elixir
-%LLMModels.Provider{
+%LLMDb.Provider{
   id: :openai,
   name: "OpenAI",
   base_url: "https://api.openai.com",
@@ -86,7 +86,7 @@ See the full function docs in [hexdocs](https://hexdocs.pm/llm_models).
 ### Model
 
 ```elixir
-%LLMModels.Model{
+%LLMDb.Model{
   id: "gpt-4o-mini",
   provider: :openai,
   name: "GPT-4o mini",
@@ -112,7 +112,7 @@ The packaged snapshot loads automatically at app start. Optional runtime filters
 
 ```elixir
 # config/runtime.exs
-config :llm_models,
+config :llm_db,
   prefer: [:openai, :anthropic],     # provider preference order
   allow: %{openai: :all},            # allow by provider or wildcard list
   deny:  %{openai: ["*-preview"]}    # deny patterns override allow
@@ -121,7 +121,7 @@ config :llm_models,
 Reload during development:
 
 ```elixir
-:ok = LLMModels.reload()
+:ok = LLMDb.reload()
 ```
 
 ## Updating Model Data
@@ -130,10 +130,10 @@ Snapshot is shipped with the library. To rebuild with fresh data:
 
 ```bash
 # Fetch upstream data (optional)
-mix llm_models.pull
+mix llm_db.pull
 
 # Run ETL and write snapshot.json
-mix llm_models.build
+mix llm_db.build
 ```
 
 See the [Sources & Engine](guides/sources-and-engine.md) guide for details.

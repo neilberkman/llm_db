@@ -1,12 +1,12 @@
-defmodule LLMModels.MixProject do
+defmodule LLMDb.MixProject do
   use Mix.Project
 
   @version "2025.11.6"
-  @source_url "https://github.com/agentjido/llm_models"
+  @source_url "https://github.com/agentjido/llm_db"
 
   def project do
     [
-      app: :llm_models,
+      app: :llm_db,
       version: @version,
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
@@ -48,7 +48,7 @@ defmodule LLMModels.MixProject do
 
   def application do
     [
-      mod: {LLMModels.Application, []},
+      mod: {LLMDb.Application, []},
       extra_applications: [:logger]
     ]
   end
@@ -66,7 +66,8 @@ defmodule LLMModels.MixProject do
       {:git_ops, "~> 2.6", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:usage_rules, "~> 0.1", only: :dev, runtime: false}
+      {:usage_rules, "~> 0.1", only: :dev, runtime: false},
+      {:rename_project, "~> 0.1.0"}
     ]
   end
 
@@ -80,7 +81,7 @@ defmodule LLMModels.MixProject do
       licenses: ["MIT"],
       maintainers: ["Mike Hostetler"],
       links: %{
-        "Changelog" => "https://hexdocs.pm/llm_models/changelog.html",
+        "Changelog" => "https://hexdocs.pm/llm_db/changelog.html",
         "GitHub" => @source_url,
         "Agent Jido" => "https://agentjido.xyz"
       },

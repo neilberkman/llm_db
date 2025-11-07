@@ -1,4 +1,4 @@
-defmodule LLMModels.Test.Fixtures do
+defmodule LLMDb.Test.Fixtures do
   @moduledoc """
   Synthetic test data fixtures for LLM model testing.
 

@@ -8,18 +8,18 @@
 - **Test with coverage**: `mix test --cover`
 - **Format code**: `mix format`
 - **Compile**: `mix compile`
-- **Update model data**: `mix llm_models.pull` (fetches from configured remote sources and regenerates snapshot)
+- **Update model data**: `mix llm_db.pull` (fetches from configured remote sources and regenerates snapshot)
 - **Dependencies**: `mix deps.get`
-- **Release**: `mix llm_models.version && mix git_ops.release && git push && git push --tags` (bumps to date-based version, updates CHANGELOG, tags, and pushes)
+- **Release**: `mix llm_db.version && mix git_ops.release && git push && git push --tags` (bumps to date-based version, updates CHANGELOG, tags, and pushes)
 
 ## Architecture
 
 - **Type**: Elixir library providing fast, persistent_term-backed LLM model metadata catalog
-- **Core modules**: `LLMModels` (main API), `LLMModels.Engine` (ETL pipeline), `LLMModels.Store` (persistent_term storage)
-- **Data structures**: `LLMModels.Provider`, `LLMModels.Model` with Zoi validation schemas in `lib/llm_models/schema/`
-- **Storage**: O(1) lock-free queries via `:persistent_term`, snapshot in `priv/llm_models/snapshot.json`
+- **Core modules**: `LLMDb` (main API), `LLMDb.Engine` (ETL pipeline), `LLMDb.Store` (persistent_term storage)
+- **Data structures**: `LLMDb.Provider`, `LLMDb.Model` with Zoi validation schemas in `lib/llm_db/schema/`
+- **Storage**: O(1) lock-free queries via `:persistent_term`, snapshot in `priv/llm_db/snapshot.json`
 - **ETL Pipeline**: Ingest → Normalize → Validate → Merge → Enrich → Filter → Index + Publish (7 stages)
-- **Startup**: Catalog automatically loads on application start via `LLMModels.Application` (no manual `load()` needed in IEx or runtime)
+- **Startup**: Catalog automatically loads on application start via `LLMDb.Application` (no manual `load()` needed in IEx or runtime)
 
 ## Code Style
 

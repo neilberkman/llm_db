@@ -33,11 +33,11 @@ Automatically pulls latest LLM model metadata from upstream sources and creates 
 - **Manual**: Via workflow_dispatch in GitHub Actions UI
 
 **Jobs:**
-1. Pull latest metadata using `mix llm_models.pull`
+1. Pull latest metadata using `mix llm_db.pull`
 2. Detect changes in:
-   - `priv/llm_models/upstream/`
-   - `priv/llm_models/snapshot.json`
-   - `lib/llm_models/generated/valid_providers.ex`
+   - `priv/llm_db/upstream/`
+   - `priv/llm_db/snapshot.json`
+   - `lib/llm_db/generated/valid_providers.ex`
 3. If changes detected:
    - Create branch: `metadata-update-YYYY-MM-DD`
    - Commit changes with descriptive message
@@ -54,12 +54,12 @@ Automatically publishes new Hex.pm releases when metadata updates are merged.
 
 **Triggers:**
 - Push to `main` branch
-- Only when `priv/llm_models/snapshot.json` changes
+- Only when `priv/llm_db/snapshot.json` changes
 - Only from metadata update merges
 
 **Jobs:**
 1. Verify trigger is from metadata update merge
-2. Prepare release using `mix llm_models.release prepare`
+2. Prepare release using `mix llm_db.release prepare`
    - Determines version from snapshot timestamp (YYYY.MM.DD format)
    - Updates `mix.exs` version
 3. Run tests to ensure quality
@@ -152,8 +152,8 @@ gh pr create \
 
 Releases are automatically triggered when metadata updates merge to main. To manually release:
 
-1. Ensure snapshot is updated: `mix llm_models.pull`
-2. Prepare release: `mix llm_models.release prepare`
+1. Ensure snapshot is updated: `mix llm_db.pull`
+2. Prepare release: `mix llm_db.release prepare`
 3. Review version in `mix.exs`
 4. Commit and push to main
 5. Workflow will detect snapshot change and publish
@@ -194,7 +194,7 @@ Generates GitHub release notes with:
 **Problem:** Publish workflow doesn't trigger after metadata merge
 
 **Solutions:**
-1. Verify `priv/llm_models/snapshot.json` was actually modified
+1. Verify `priv/llm_db/snapshot.json` was actually modified
 2. Check commit message contains "Update model metadata"
 3. Review workflow logs in Actions tab
 4. Ensure `HEX_API_KEY` secret is set correctly

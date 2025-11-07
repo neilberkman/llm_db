@@ -8,10 +8,10 @@ Query, filter, and access LLM model metadata at runtime.
 
 ```elixir
 # Defaults
-{:ok, snapshot} = LLMModels.load()
+{:ok, snapshot} = LLMDb.load()
 
 # Runtime overrides
-{:ok, snapshot} = LLMModels.load(
+{:ok, snapshot} = LLMDb.load(
   runtime_overrides: %{
     filters: %{
       allow: %{openai: :all, anthropic: ["claude-3*"]},
@@ -23,7 +23,7 @@ Query, filter, and access LLM model metadata at runtime.
 ```
 
 **Steps**:
-1. Loads `LLMModels.Packaged.snapshot()` from `priv/llm_models/snapshot.json`
+1. Loads `LLMDb.Packaged.snapshot()` from `priv/llm_db/snapshot.json`
 2. Normalizes IDs to atoms
 3. Compiles filter patterns
 4. Builds indexes (providers_by_id, models_by_key)
@@ -33,7 +33,7 @@ Query, filter, and access LLM model metadata at runtime.
 ### Reload
 
 ```elixir
-{:ok, snapshot} = LLMModels.reload()
+{:ok, snapshot} = LLMDb.reload()
 ```
 
 ### Storage
@@ -41,8 +41,8 @@ Query, filter, and access LLM model metadata at runtime.
 Stored in `:persistent_term` for O(1) lock-free reads, process-local caching, and epoch-based cache invalidation.
 
 ```elixir
-LLMModels.epoch()           # => 1
-LLMModels.snapshot()        # => %{providers: %{...}, ...}
+LLMDb.epoch()           # => 1
+LLMDb.snapshot()        # => %{providers: %{...}, ...}
 ```
 
 ## Listing and Lookup
@@ -51,29 +51,29 @@ LLMModels.snapshot()        # => %{providers: %{...}, ...}
 
 ```elixir
 # All providers
-providers = LLMModels.providers()
-# => [%LLMModels.Provider{id: :openai, ...}, ...]
+providers = LLMDb.providers()
+# => [%LLMDb.Provider{id: :openai, ...}, ...]
 
 # Specific provider
-{:ok, provider} = LLMModels.provider(:openai)
-LLMModels.provider(:unknown)  # => :error
+{:ok, provider} = LLMDb.provider(:openai)
+LLMDb.provider(:unknown)  # => :error
 ```
 
 ### Models
 
 ```elixir
 # All models
-models = LLMModels.models()
+models = LLMDb.models()
 
 # Models by provider
-openai_models = LLMModels.models(:openai)
+openai_models = LLMDb.models(:openai)
 
 # Specific model
-{:ok, model} = LLMModels.model(:openai, "gpt-4")
-LLMModels.model(:openai, "unknown")  # => {:error, :not_found}
+{:ok, model} = LLMDb.model(:openai, "gpt-4")
+LLMDb.model(:openai, "unknown")  # => {:error, :not_found}
 
 # From spec string
-{:ok, model} = LLMModels.model("openai:gpt-4")
+{:ok, model} = LLMDb.model("openai:gpt-4")
 ```
 
 ### Alias Resolution
@@ -81,10 +81,10 @@ LLMModels.model(:openai, "unknown")  # => {:error, :not_found}
 Aliases auto-resolve:
 
 ```elixir
-{:ok, model} = LLMModels.model(:openai, "gpt4")
-# => {:ok, %LLMModels.Model{id: "gpt-4", ...}}
+{:ok, model} = LLMDb.model(:openai, "gpt4")
+# => {:ok, %LLMDb.Model{id: "gpt-4", ...}}
 
-{:ok, model} = LLMModels.model("openai:gpt4")
+{:ok, model} = LLMDb.model("openai:gpt4")
 ```
 
 ## Capabilities
@@ -92,11 +92,11 @@ Aliases auto-resolve:
 Get capability keys for filtering:
 
 ```elixir
-LLMModels.capabilities(model)
+LLMDb.capabilities(model)
 # => [:chat, :tools, :json_native, :streaming_text, ...]
 
-LLMModels.capabilities({:openai, "gpt-4"})
-LLMModels.capabilities("openai:gpt-4")
+LLMDb.capabilities({:openai, "gpt-4"})
+LLMDb.capabilities("openai:gpt-4")
 ```
 
 ## Model Selection
@@ -105,32 +105,32 @@ Select models by requirements:
 
 ```elixir
 # Basic requirements
-models = LLMModels.select(require: [tools: true])
+models = LLMDb.select(require: [tools: true])
 
-models = LLMModels.select(
+models = LLMDb.select(
   require: [json_native: true, chat: true]
 )
 
 # Forbid capabilities
-models = LLMModels.select(
+models = LLMDb.select(
   require: [tools: true],
   forbid: [streaming_tool_calls: true]
 )
 
 # Provider preference
-models = LLMModels.select(
+models = LLMDb.select(
   require: [chat: true],
   prefer: [:anthropic, :openai]
 )
 
 # Scope to provider
-models = LLMModels.select(
+models = LLMDb.select(
   require: [tools: true],
   scope: :openai
 )
 
 # Combined
-models = LLMModels.select(
+models = LLMDb.select(
   require: [chat: true, json_native: true, tools: true],
   forbid: [streaming_tool_calls: true],
   prefer: [:openai, :anthropic],
@@ -143,7 +143,7 @@ models = LLMModels.select(
 ### Runtime Filters
 
 ```elixir
-{:ok, _} = LLMModels.load(
+{:ok, _} = LLMDb.load(
   runtime_overrides: %{
     filters: %{
       allow: %{
@@ -167,26 +167,26 @@ models = LLMModels.select(
 ### Check Availability
 
 ```elixir
-LLMModels.allowed?(:openai, "gpt-4")           # => true
-LLMModels.allowed?(:openai, "gpt-4-deprecated") # => false
+LLMDb.allowed?(:openai, "gpt-4")           # => true
+LLMDb.allowed?(:openai, "gpt-4-deprecated") # => false
 ```
 
 ## Spec Parsing
 
 ```elixir
 # Parse provider
-{:ok, :openai} = LLMModels.Spec.parse_provider("openai")
-LLMModels.Spec.parse_provider("unknown")  # => {:error, :unknown_provider}
+{:ok, :openai} = LLMDb.Spec.parse_provider("openai")
+LLMDb.Spec.parse_provider("unknown")  # => {:error, :unknown_provider}
 
 # Parse spec
-{:ok, {:openai, "gpt-4"}} = LLMModels.Spec.parse_spec("openai:gpt-4")
-LLMModels.Spec.parse_spec("invalid")  # => {:error, :invalid_spec}
+{:ok, {:openai, "gpt-4"}} = LLMDb.Spec.parse_spec("openai:gpt-4")
+LLMDb.Spec.parse_spec("invalid")  # => {:error, :invalid_spec}
 
 # Resolve (handles Bedrock inference profiles)
-{:ok, {:openai, "gpt-4"}} = LLMModels.Spec.resolve("openai:gpt-4", snapshot)
+{:ok, {:openai, "gpt-4"}} = LLMDb.Spec.resolve("openai:gpt-4", snapshot)
 
 {:ok, {:bedrock, "us.anthropic.claude-3-sonnet-20240229-v1:0"}} =
-  LLMModels.Spec.resolve("bedrock:us.anthropic.claude-3-sonnet-20240229-v1:0", snapshot)
+  LLMDb.Spec.resolve("bedrock:us.anthropic.claude-3-sonnet-20240229-v1:0", snapshot)
 ```
 
 ## Runtime Overrides
@@ -194,7 +194,7 @@ LLMModels.Spec.parse_spec("invalid")  # => {:error, :invalid_spec}
 Runtime overrides **only** affect filters and preferences, not provider/model data.
 
 ```elixir
-{:ok, _} = LLMModels.load(
+{:ok, _} = LLMDb.load(
   runtime_overrides: %{
     filters: %{allow: %{openai: ["gpt-4"]}, deny: %{}},
     prefer: [:openai]
@@ -202,7 +202,7 @@ Runtime overrides **only** affect filters and preferences, not provider/model da
 )
 ```
 
-Triggers `LLMModels.Runtime.apply/2`:
+Triggers `LLMDb.Runtime.apply/2`:
 1. Recompiles filter patterns
 2. Rebuilds indexes (excludes filtered models)
 3. Stores snapshot with epoch + 1
@@ -212,7 +212,7 @@ Triggers `LLMModels.Runtime.apply/2`:
 ### Pick JSON-native model, prefer OpenAI, forbid streaming tool calls
 
 ```elixir
-models = LLMModels.select(
+models = LLMDb.select(
   require: [json_native: true],
   forbid: [streaming_tool_calls: true],
   prefer: [:openai]
@@ -223,16 +223,16 @@ model = List.first(models)
 ### List Anthropic models with tools
 
 ```elixir
-models = LLMModels.select(require: [tools: true], scope: :anthropic)
+models = LLMDb.select(require: [tools: true], scope: :anthropic)
 Enum.each(models, fn m -> IO.puts("#{m.id}: #{m.name}") end)
 ```
 
 ### Check spec availability
 
 ```elixir
-case LLMModels.model("openai:gpt-4") do
+case LLMDb.model("openai:gpt-4") do
   {:ok, model} ->
-    if LLMModels.allowed?(model.provider, model.id) do
+    if LLMDb.allowed?(model.provider, model.id) do
       IO.puts("✓ Available: #{model.name}")
     else
       IO.puts("✗ Filtered by allow/deny")
@@ -245,7 +245,7 @@ end
 ### Find cheapest model with capabilities
 
 ```elixir
-models = LLMModels.select(require: [chat: true, tools: true])
+models = LLMDb.select(require: [chat: true, tools: true])
 
 cheapest = 
   models
@@ -262,17 +262,17 @@ end
 
 ```elixir
 models = 
-  LLMModels.models()
+  LLMDb.models()
   |> Enum.filter(fn m -> :image in (m.modalities.input || []) end)
 ```
 
 ## Diagnostics
 
 ```elixir
-LLMModels.epoch()                         # => 1
-snapshot = LLMModels.snapshot()
-LLMModels.providers() |> length()
-LLMModels.models() |> length()
+LLMDb.epoch()                         # => 1
+snapshot = LLMDb.snapshot()
+LLMDb.providers() |> length()
+LLMDb.models() |> length()
 ```
 
 ## Next Steps

@@ -2,7 +2,7 @@
 
 ## Snapshot-Based Model Data
 
-LLM Models packages a pre-built snapshot at `priv/llm_models/snapshot.json`.
+LLM Models packages a pre-built snapshot at `priv/llm_db/snapshot.json`.
 
 ### Snapshot Structure
 
@@ -35,15 +35,15 @@ V2 schema uses nested providers with embedded models:
 ### Runtime Loading
 
 ```elixir
-# Reads from priv/llm_models/snapshot.json
-{:ok, _} = LLMModels.load()
+# Reads from priv/llm_db/snapshot.json
+{:ok, _} = LLMDb.load()
 ```
 
 Compile-time embed (zero runtime IO):
 
 ```elixir
 # config/config.exs
-config :llm_models, compile_embed: true
+config :llm_db, compile_embed: true
 ```
 
 Snapshot is inlined into BEAM bytecode during compilation. Requires recompilation on snapshot changes.
@@ -53,23 +53,23 @@ Snapshot is inlined into BEAM bytecode during compilation. Requires recompilatio
 ### 1. Pull Remote Sources
 
 ```bash
-$ mix llm_models.pull
+$ mix llm_db.pull
 Pulling from configured sources...
-✓ ModelsDev: 450 models cached at priv/llm_models/cache/models_dev.json
+✓ ModelsDev: 450 models cached at priv/llm_db/cache/models_dev.json
 ```
 
 ### 2. Build Snapshot
 
 ```bash
-$ mix llm_models.build
+$ mix llm_db.build
 Running ETL pipeline...
 ✓ Ingested 3 sources
 ✓ Validated 450 models (3 invalid dropped)
 ✓ Merged with precedence (last wins)
 ✓ Filtered to 400 models (50 excluded by filters)
 ✓ Enriched and indexed
-✓ Snapshot written to priv/llm_models/snapshot.json
-✓ Generated lib/llm_models/generated/valid_providers.ex
+✓ Snapshot written to priv/llm_db/snapshot.json
+✓ Generated lib/llm_db/generated/valid_providers.ex
 
 Summary:
   Providers: 12
@@ -79,13 +79,13 @@ Summary:
 
 **Outputs**:
 
-1. `priv/llm_models/snapshot.json` - V2 snapshot
-2. `lib/llm_models/generated/valid_providers.ex` - Pre-existing provider atoms (prevents atom leaks)
+1. `priv/llm_db/snapshot.json` - V2 snapshot
+2. `lib/llm_db/generated/valid_providers.ex` - Pre-existing provider atoms (prevents atom leaks)
 
 ### 3. Commit Changes
 
 ```bash
-$ git add priv/llm_models/snapshot.json lib/llm_models/generated/valid_providers.ex
+$ git add priv/llm_db/snapshot.json lib/llm_db/generated/valid_providers.ex
 $ git commit -m "Update model snapshot"
 ```
 
@@ -96,7 +96,7 @@ Date-based versioning: `YYYY.M.D`
 ### Update Version
 
 ```bash
-$ mix llm_models.version
+$ mix llm_db.version
 Updated version to 2025.11.6 in mix.exs
 ```
 
@@ -158,7 +158,7 @@ CI triggers on tag push: Hex.pm publish, GitHub release, HexDocs publish.
 }
 ```
 
-**Runtime-only indexes** (rebuilt during `LLMModels.load/1`):
+**Runtime-only indexes** (rebuilt during `LLMDb.load/1`):
 - `providers_by_id`
 - `models_by_key`
 - `models_by_provider`
@@ -174,12 +174,12 @@ CI triggers on tag push: Hex.pm publish, GitHub release, HexDocs publish.
 
 ## Release Checklist
 
-- [ ] `mix llm_models.pull`
-- [ ] `mix llm_models.build`
+- [ ] `mix llm_db.pull`
+- [ ] `mix llm_db.build`
 - [ ] `mix test`
-- [ ] Review `git diff priv/llm_models/snapshot.json`
+- [ ] Review `git diff priv/llm_db/snapshot.json`
 - [ ] Commit snapshot and generated files
-- [ ] `mix llm_models.version`
+- [ ] `mix llm_db.version`
 - [ ] `mix git_ops.release`
 - [ ] Review `CHANGELOG.md`
 - [ ] `git push && git push --tags`
@@ -187,10 +187,10 @@ CI triggers on tag push: Hex.pm publish, GitHub release, HexDocs publish.
 ## Automated Release
 
 ```bash
-$ mix llm_models.pull && \
-  mix llm_models.build && \
+$ mix llm_db.pull && \
+  mix llm_db.build && \
   mix test && \
-  mix llm_models.version && \
+  mix llm_db.version && \
   mix git_ops.release && \
   git push && \
   git push --tags
@@ -202,10 +202,10 @@ Or via mix alias:
 defp aliases do
   [
     release: [
-      "llm_models.pull",
-      "llm_models.build",
+      "llm_db.pull",
+      "llm_db.build",
       "test",
-      "llm_models.version",
+      "llm_db.version",
       "git_ops.release"
     ]
   ]
