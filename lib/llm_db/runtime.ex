@@ -261,7 +261,7 @@ defmodule LLMDb.Runtime do
   defp maybe_update_filter(snapshot, filter) when map_size(filter) == 0, do: {:ok, snapshot}
 
   defp maybe_update_filter(snapshot, filter) do
-    alias LLMDb.{Config, Engine, Index}
+    alias LLMDb.{Config, Engine}
 
     require Logger
 
@@ -301,18 +301,32 @@ defmodule LLMDb.Runtime do
          "(allow: #{allow_summary}, deny: #{deny_summary}). " <>
          "Use allow: :all to widen filters or remove deny patterns."}
     else
-      indexes = Index.build(Map.values(snapshot.providers_by_id), filtered_models)
-
       updated_snapshot = %{
         snapshot
         | filters: compiled_filters,
-          models_by_key: indexes.models_by_key,
-          models: indexes.models_by_provider,
-          aliases_by_key: indexes.aliases_by_key
+          models_by_key: index_models(filtered_models),
+          models: Enum.group_by(filtered_models, & &1.provider),
+          aliases_by_key: index_aliases(filtered_models)
       }
 
       {:ok, updated_snapshot}
     end
+  end
+
+  defp index_models(models), do: Map.new(models, &{{&1.provider, &1.id}, &1})
+
+  defp index_aliases(models) do
+    models
+    |> Enum.flat_map(fn model ->
+      provider = model.provider
+      canonical_id = model.id
+      aliases = Map.get(model, :aliases, [])
+
+      Enum.map(aliases, fn alias_name ->
+        {{provider, alias_name}, canonical_id}
+      end)
+    end)
+    |> Map.new()
   end
 
   defp maybe_update_prefer({:ok, snapshot}, nil), do: {:ok, snapshot}

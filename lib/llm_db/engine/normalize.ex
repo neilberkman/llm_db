@@ -1,9 +1,17 @@
 defmodule LLMDb.Normalize do
   @moduledoc """
-  Utilities for normalizing raw data into consistent formats.
+  Complete normalization utilities for raw data into consistent formats.
 
-  This module provides functions to normalize provider IDs, model identities,
-  dates, and batch normalization for providers and models.
+  This module handles ALL normalization in one place:
+  - Provider IDs: string → atom (with hyphen → underscore conversion)
+  - Model providers: string → atom
+  - Modalities: string → atom (from valid set)
+  - Tags: map → list, nil → []
+  - Dates: DateTime/Date → ISO8601 string
+  - Removing nil values from maps
+
+  Uses `String.to_existing_atom/1` at runtime to prevent atom leaking.
+  Uses `String.to_atom/1` ONLY in unsafe mode during build-time (mix tasks).
   """
 
   @doc """
@@ -180,16 +188,26 @@ defmodule LLMDb.Normalize do
 
   defp normalize_model(%{provider: provider} = model) do
     # Use unsafe mode for batch normalization (used during activation)
-    normalized =
+    model
+    |> then(fn m ->
       case normalize_provider_id(provider, unsafe: true) do
-        {:ok, normalized_provider} -> %{model | provider: normalized_provider}
-        {:error, _} -> model
+        {:ok, normalized_provider} -> %{m | provider: normalized_provider}
+        {:error, _} -> m
       end
-
-    normalize_modalities(normalized)
+    end)
+    |> normalize_modalities()
+    |> normalize_tags()
+    |> normalize_dates()
+    |> remove_nil_values()
   end
 
-  defp normalize_model(model), do: normalize_modalities(model)
+  defp normalize_model(model) do
+    model
+    |> normalize_modalities()
+    |> normalize_tags()
+    |> normalize_dates()
+    |> remove_nil_values()
+  end
 
   defp normalize_modalities(%{modalities: modalities} = model) when is_map(modalities) do
     normalized_modalities =
@@ -234,6 +252,60 @@ defmodule LLMDb.Normalize do
 
   defp normalize_modality_atom(value) when is_atom(value) do
     if value in @valid_modalities, do: value, else: value
+  end
+
+  defp normalize_tags(model) do
+    case Map.get(model, :tags) do
+      tags when is_map(tags) and map_size(tags) > 0 ->
+        Map.put(model, :tags, Map.values(tags))
+
+      tags when is_map(tags) ->
+        Map.put(model, :tags, [])
+
+      nil ->
+        model
+
+      tags when is_list(tags) ->
+        model
+
+      _ ->
+        model
+    end
+  end
+
+  defp normalize_dates(model) do
+    model
+    |> normalize_date_field(:last_updated)
+    |> normalize_date_field(:knowledge)
+  end
+
+  defp normalize_date_field(model, field) do
+    if Map.has_key?(model, field) do
+      case Map.get(model, field) do
+        %DateTime{} = dt ->
+          Map.put(model, field, DateTime.to_iso8601(dt))
+
+        %Date{} = d ->
+          Map.put(model, field, Date.to_iso8601(d))
+
+        nil ->
+          model
+
+        value when is_binary(value) ->
+          model
+
+        _ ->
+          Map.delete(model, field)
+      end
+    else
+      model
+    end
+  end
+
+  defp remove_nil_values(model) when is_map(model) do
+    model
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+    |> Map.new()
   end
 
   defp parse_date(date_string) do

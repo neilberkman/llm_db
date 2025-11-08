@@ -116,7 +116,7 @@ defmodule LLMDb.Store do
       %{providers: providers} when is_list(providers) ->
         Enum.map(providers, fn
           %LLMDb.Provider{} = p -> p
-          provider -> provider |> normalize_provider_for_struct() |> LLMDb.Provider.new!()
+          provider -> LLMDb.Provider.new!(provider)
         end)
 
       _ ->
@@ -169,7 +169,7 @@ defmodule LLMDb.Store do
         |> Map.get(provider_id, [])
         |> Enum.map(fn
           %LLMDb.Model{} = m -> m
-          model -> model |> normalize_model_for_struct() |> LLMDb.Model.new!()
+          model -> LLMDb.Model.new!(model)
         end)
 
       _ ->
@@ -217,7 +217,7 @@ defmodule LLMDb.Store do
                     {:ok, m}
 
                   model ->
-                    {:ok, model |> normalize_model_for_struct() |> LLMDb.Model.new!()}
+                    {:ok, LLMDb.Model.new!(model)}
                 end
             end
 
@@ -225,91 +225,11 @@ defmodule LLMDb.Store do
             {:ok, m}
 
           model ->
-            {:ok, model |> normalize_model_for_struct() |> LLMDb.Model.new!()}
+            {:ok, LLMDb.Model.new!(model)}
         end
 
       _ ->
         {:error, :not_found}
-    end
-  end
-
-  # Private helpers to normalize data before converting to structs
-  # Handles cases where snapshot data has incompatible types or nil values
-
-  defp normalize_provider_for_struct(%LLMDb.Provider{} = provider) do
-    # Already a Provider struct, return as-is
-    provider
-  end
-
-  defp normalize_provider_for_struct(provider) when is_map(provider) do
-    # Remove nil values - Zoi handles missing optional fields better than explicit nils
-    provider
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-    |> Map.new()
-  end
-
-  defp normalize_model_for_struct(%LLMDb.Model{} = model) do
-    # Already a Model struct, return as-is
-    model
-  end
-
-  defp normalize_model_for_struct(model) when is_map(model) do
-    model
-    |> normalize_tags()
-    |> normalize_dates()
-    # Remove ALL nil values at the end - Zoi handles missing optional fields better
-    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-    |> Map.new()
-  end
-
-  defp normalize_tags(model) do
-    case Map.get(model, :tags) do
-      tags when is_map(tags) and map_size(tags) > 0 ->
-        Map.put(model, :tags, Map.values(tags))
-
-      tags when is_map(tags) ->
-        Map.put(model, :tags, [])
-
-      nil ->
-        # Don't add empty array, let remove_nil_values handle it
-        model
-
-      tags when is_list(tags) ->
-        model
-
-      _ ->
-        model
-    end
-  end
-
-  defp normalize_dates(model) do
-    model
-    |> normalize_date_field(:last_updated)
-    |> normalize_date_field(:knowledge)
-  end
-
-  defp normalize_date_field(model, field) do
-    if Map.has_key?(model, field) do
-      case Map.get(model, field) do
-        %DateTime{} = dt ->
-          Map.put(model, field, DateTime.to_iso8601(dt))
-
-        %Date{} = d ->
-          Map.put(model, field, Date.to_iso8601(d))
-
-        nil ->
-          # Keep nil, will be removed by final reject
-          model
-
-        value when is_binary(value) ->
-          model
-
-        _ ->
-          # Remove invalid values
-          Map.delete(model, field)
-      end
-    else
-      model
     end
   end
 end

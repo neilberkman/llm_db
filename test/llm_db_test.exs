@@ -40,16 +40,13 @@ defmodule LLMDbTest do
     # Apply filters
     filtered_models = LLMDb.Engine.apply_filters(models, filters)
 
-    # Build indexes at load time
-    indexes = LLMDb.Index.build(providers, filtered_models)
-
-    # Build snapshot with indexes
+    # Build snapshot with inline indexes
     snapshot = %{
-      providers_by_id: indexes.providers_by_id,
-      models_by_key: indexes.models_by_key,
-      aliases_by_key: indexes.aliases_by_key,
+      providers_by_id: Map.new(providers, &{&1.id, &1}),
+      models_by_key: Map.new(filtered_models, &{{&1.provider, &1.id}, &1}),
+      aliases_by_key: build_aliases_index(filtered_models),
       providers: providers,
-      models: indexes.models_by_provider,
+      models: Enum.group_by(filtered_models, & &1.provider),
       base_models: models,
       filters: filters,
       prefer: app_config.prefer,
@@ -988,5 +985,19 @@ defmodule LLMDbTest do
       assert LLMDb.allowed?({:openai, "gpt-4"}) == false
       assert {:error, :no_match} = LLMDb.select(require: [chat: true])
     end
+  end
+
+  defp build_aliases_index(models) do
+    models
+    |> Enum.flat_map(fn model ->
+      provider = model.provider
+      canonical_id = model.id
+      aliases = Map.get(model, :aliases, [])
+
+      Enum.map(aliases, fn alias_name ->
+        {{provider, alias_name}, canonical_id}
+      end)
+    end)
+    |> Map.new()
   end
 end

@@ -9,7 +9,7 @@ defmodule LLMDb.Loader do
   LLMDb module focused on the query API.
   """
 
-  alias LLMDb.{Engine, Index, Merge, Model, Packaged, Provider, Runtime}
+  alias LLMDb.{Engine, Merge, Model, Packaged, Provider, Runtime}
 
   require Logger
 
@@ -136,17 +136,24 @@ defmodule LLMDb.Loader do
       %{version: 2, providers: nested_providers, generated_at: generated_at} ->
         # V2 snapshot with nested providers
         {providers, models} = flatten_nested_providers(nested_providers)
-        {:ok, {normalize_providers(providers), normalize_models(models), generated_at}}
+
+        {:ok,
+         {deserialize_json_atoms(providers, :provider), deserialize_json_atoms(models, :model),
+          generated_at}}
 
       %{providers: providers, models: models, generated_at: generated_at}
       when is_list(providers) and is_list(models) ->
         # V1 snapshot with generated_at
-        {:ok, {normalize_providers(providers), normalize_models(models), generated_at}}
+        {:ok,
+         {deserialize_json_atoms(providers, :provider), deserialize_json_atoms(models, :model),
+          generated_at}}
 
       %{providers: providers, models: models}
       when is_list(providers) and is_list(models) ->
         # V1 snapshot without generated_at
-        {:ok, {normalize_providers(providers), normalize_models(models), nil}}
+        {:ok,
+         {deserialize_json_atoms(providers, :provider), deserialize_json_atoms(models, :model),
+          nil}}
 
       _ ->
         {:error, :invalid_snapshot_format}
@@ -185,97 +192,65 @@ defmodule LLMDb.Loader do
     {Enum.reverse(providers), Enum.reverse(all_models)}
   end
 
-  defp normalize_providers(providers) do
-    Enum.map(providers, fn provider ->
-      # Convert provider ID from string to atom if needed (JSON stores as strings)
+  defp deserialize_json_atoms(items, :provider) do
+    Enum.map(items, fn provider ->
+      # Convert provider ID from JSON string to existing atom
       normalized_id =
         case Map.get(provider, :id) do
           id when is_atom(id) -> id
           id when is_binary(id) -> String.to_existing_atom(id)
         end
 
-      # Ensure we have a Provider struct with only valid fields
       provider_map = %{provider | id: normalized_id}
 
-      # Filter to only Provider struct fields to avoid KeyError
-      valid_fields = [:id, :name, :base_url, :env, :config_schema, :doc, :extra]
-      filtered = Map.take(provider_map, valid_fields)
-
+      # Validate and create Provider struct
       case provider do
-        %Provider{} ->
-          %{provider | id: normalized_id}
-
-        _ ->
-          # Use Provider.new! for proper Zoi validation
-          Provider.new!(filtered)
+        %Provider{} -> %{provider | id: normalized_id}
+        _ -> Provider.new!(provider_map)
       end
     end)
   end
 
-  defp normalize_models(models) do
-    Enum.map(models, fn model ->
-      # Convert provider from string to atom if needed
+  defp deserialize_json_atoms(items, :model) do
+    Enum.map(items, fn model ->
+      # Convert provider from JSON string to existing atom
       normalized_provider =
         case Map.get(model, :provider) do
           p when is_atom(p) -> p
           p when is_binary(p) -> String.to_existing_atom(p)
         end
 
-      # Start with updated provider
-      model_map = Map.put(model, :provider, normalized_provider)
-
-      # Normalize tags if present (should be list, not map or nil)
-      model_map =
-        if Map.has_key?(model, :tags) do
-          case Map.get(model, :tags) do
-            tags when is_map(tags) and map_size(tags) > 0 ->
-              Map.put(model_map, :tags, Map.values(tags))
-
-            tags when is_map(tags) ->
-              Map.put(model_map, :tags, [])
-
-            tags when is_list(tags) ->
-              model_map
-
-            nil ->
-              Map.put(model_map, :tags, [])
-
-            _ ->
-              Map.put(model_map, :tags, [])
-          end
-        else
-          model_map
-        end
-
-      # Normalize modalities if present (convert strings to atoms)
+      # Convert modality strings to existing atoms
       model_map =
         case Map.get(model, :modalities) do
           %{input: input, output: output} ->
-            Map.put(model_map, :modalities, %{
-              input: normalize_modality_list(input),
-              output: normalize_modality_list(output)
+            Map.put(model, :modalities, %{
+              input: deserialize_modality_list(input),
+              output: deserialize_modality_list(output)
             })
 
           _ ->
-            model_map
+            model
         end
 
-      # Ensure we have a Model struct
+      model_map = Map.put(model_map, :provider, normalized_provider)
+
+      # Validate and create Model struct
       case model do
         %Model{} -> model_map
-        _ -> struct!(Model, model_map)
+        _ -> Model.new!(model_map)
       end
     end)
   end
 
-  defp normalize_modality_list(list) when is_list(list) do
+  defp deserialize_modality_list(list) when is_list(list) do
     Enum.map(list, fn
       s when is_binary(s) -> String.to_existing_atom(s)
       a when is_atom(a) -> a
     end)
   end
 
-  defp normalize_modality_list(other), do: other
+  defp deserialize_modality_list(other), do: other
 
   defp merge_custom({providers, models}, %{providers: [], models: []}) do
     # No custom overlay
@@ -283,9 +258,9 @@ defmodule LLMDb.Loader do
   end
 
   defp merge_custom({providers, models}, custom) do
-    # Normalize custom providers and models
-    custom_providers = normalize_providers(custom.providers)
-    custom_models = normalize_models(custom.models)
+    # Deserialize custom providers and models (convert JSON strings to atoms)
+    custom_providers = deserialize_json_atoms(custom.providers, :provider)
+    custom_models = deserialize_json_atoms(custom.models, :model)
 
     # Merge providers (last wins by ID)
     merged_providers = Merge.merge_providers(providers, custom_providers)
@@ -332,14 +307,12 @@ defmodule LLMDb.Loader do
   end
 
   defp build_snapshot(providers, filtered_models, base_models, runtime, generated_at) do
-    indexes = Index.build(providers, filtered_models)
-
     %{
-      providers_by_id: indexes.providers_by_id,
-      models_by_key: indexes.models_by_key,
-      aliases_by_key: indexes.aliases_by_key,
+      providers_by_id: index_providers(providers),
+      models_by_key: index_models(filtered_models),
+      aliases_by_key: index_aliases(filtered_models),
       providers: providers,
-      models: indexes.models_by_provider,
+      models: Enum.group_by(filtered_models, & &1.provider),
       base_models: base_models,
       filters: runtime.filters,
       prefer: runtime.prefer,
@@ -350,6 +323,24 @@ defmodule LLMDb.Loader do
         digest: compute_digest(providers, base_models, runtime)
       }
     }
+  end
+
+  defp index_providers(providers), do: Map.new(providers, &{&1.id, &1})
+
+  defp index_models(models), do: Map.new(models, &{{&1.provider, &1.id}, &1})
+
+  defp index_aliases(models) do
+    models
+    |> Enum.flat_map(fn model ->
+      provider = model.provider
+      canonical_id = model.id
+      aliases = Map.get(model, :aliases, [])
+
+      Enum.map(aliases, fn alias_name ->
+        {{provider, alias_name}, canonical_id}
+      end)
+    end)
+    |> Map.new()
   end
 
   defp custom_digest(%{providers: [], models: []}), do: nil

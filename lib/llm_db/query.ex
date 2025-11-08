@@ -12,6 +12,26 @@ defmodule LLMDb.Query do
   @type model_id :: String.t()
   @type model_spec :: {provider(), model_id()} | String.t() | Model.t()
 
+  # Maps query capability keys to their paths in the Model.capabilities schema.
+  # This map is the single source of truth for capability lookups, derived from
+  # the capability schema in LLMDb.Model. Top-level capabilities like :chat and
+  # :embeddings map to single-element paths, while nested capabilities like
+  # :tools_streaming map to [:tools, :streaming].
+  @capability_paths %{
+    chat: [:chat],
+    embeddings: [:embeddings],
+    reasoning: [:reasoning, :enabled],
+    tools: [:tools, :enabled],
+    tools_streaming: [:tools, :streaming],
+    tools_strict: [:tools, :strict],
+    tools_parallel: [:tools, :parallel],
+    json_native: [:json, :native],
+    json_schema: [:json, :schema],
+    json_strict: [:json, :strict],
+    streaming_text: [:streaming, :text],
+    streaming_tool_calls: [:streaming, :tool_calls]
+  }
+
   @doc """
   Selects the first model matching capability requirements.
 
@@ -216,20 +236,9 @@ defmodule LLMDb.Query do
   end
 
   defp check_capability(caps, key, expected_value) do
-    case key do
-      :chat -> Map.get(caps, :chat) == expected_value
-      :embeddings -> Map.get(caps, :embeddings) == expected_value
-      :reasoning -> get_in(caps, [:reasoning, :enabled]) == expected_value
-      :tools -> get_in(caps, [:tools, :enabled]) == expected_value
-      :tools_streaming -> get_in(caps, [:tools, :streaming]) == expected_value
-      :tools_strict -> get_in(caps, [:tools, :strict]) == expected_value
-      :tools_parallel -> get_in(caps, [:tools, :parallel]) == expected_value
-      :json_native -> get_in(caps, [:json, :native]) == expected_value
-      :json_schema -> get_in(caps, [:json, :schema]) == expected_value
-      :json_strict -> get_in(caps, [:json, :strict]) == expected_value
-      :streaming_text -> get_in(caps, [:streaming, :text]) == expected_value
-      :streaming_tool_calls -> get_in(caps, [:streaming, :tool_calls]) == expected_value
-      _ -> false
+    case Map.get(@capability_paths, key) do
+      nil -> false
+      path -> get_in(caps, path) == expected_value
     end
   end
 end

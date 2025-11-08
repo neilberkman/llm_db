@@ -16,7 +16,7 @@ defmodule LLMDb.APITest do
       %{id: :anthropic, name: "Anthropic"}
     ]
 
-    # Models need to be normalized (provider as atom) before being passed to Index.build
+    # Models need to be normalized (provider as atom)
     models = [
       %{
         id: "gpt-4o",
@@ -42,14 +42,13 @@ defmodule LLMDb.APITest do
       LLMDb.Config.compile_filters(app_config.allow, app_config.deny, provider_ids)
 
     filtered_models = LLMDb.Engine.apply_filters(models, filters)
-    indexes = LLMDb.Index.build(providers, filtered_models)
 
     snapshot = %{
-      providers_by_id: indexes.providers_by_id,
-      models_by_key: indexes.models_by_key,
-      aliases_by_key: indexes.aliases_by_key,
+      providers_by_id: Map.new(providers, &{&1.id, &1}),
+      models_by_key: Map.new(filtered_models, &{{&1.provider, &1.id}, &1}),
+      aliases_by_key: build_aliases_index(filtered_models),
       providers: providers,
-      models: indexes.models_by_provider,
+      models: Enum.group_by(filtered_models, & &1.provider),
       base_models: models,
       filters: filters,
       prefer: app_config.prefer,
@@ -201,14 +200,12 @@ defmodule LLMDb.APITest do
       # Apply filters - model should be filtered out
       filtered_models = LLMDb.Engine.apply_filters(models, filters)
 
-      indexes = LLMDb.Index.build(providers, filtered_models)
-
       snapshot = %{
-        providers_by_id: indexes.providers_by_id,
-        models_by_key: indexes.models_by_key,
-        aliases_by_key: indexes.aliases_by_key,
+        providers_by_id: Map.new(providers, &{&1.id, &1}),
+        models_by_key: Map.new(filtered_models, &{{&1.provider, &1.id}, &1}),
+        aliases_by_key: build_aliases_index(filtered_models),
         providers: providers,
-        models: indexes.models_by_provider,
+        models: Enum.group_by(filtered_models, & &1.provider),
         base_models: models,
         filters: filters,
         prefer: app_config.prefer,
@@ -227,5 +224,19 @@ defmodule LLMDb.APITest do
       refute LLMDb.allowed?({:openai, "gpt-4-omni"})
       refute LLMDb.allowed?({:openai, "gpt-4o"})
     end
+  end
+
+  defp build_aliases_index(models) do
+    models
+    |> Enum.flat_map(fn model ->
+      provider = model.provider
+      canonical_id = model.id
+      aliases = Map.get(model, :aliases, [])
+
+      Enum.map(aliases, fn alias_name ->
+        {{provider, alias_name}, canonical_id}
+      end)
+    end)
+    |> Map.new()
   end
 end

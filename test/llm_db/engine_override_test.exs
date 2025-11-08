@@ -1,7 +1,7 @@
 defmodule LLMDb.EngineOverrideTest do
   use ExUnit.Case, async: false
 
-  alias LLMDb.{Config, Engine, Index, Store}
+  alias LLMDb.{Config, Engine, Store}
 
   setup do
     Store.clear!()
@@ -40,15 +40,14 @@ defmodule LLMDb.EngineOverrideTest do
       end
 
     filtered_models = Engine.apply_filters(all_models, filters)
-    indexes = Index.build(providers, filtered_models)
 
-    # Build runtime snapshot with indexes
+    # Build runtime snapshot with inline indexes
     runtime_snapshot = %{
-      providers_by_id: indexes.providers_by_id,
-      models_by_key: indexes.models_by_key,
-      aliases_by_key: indexes.aliases_by_key,
+      providers_by_id: Map.new(providers, &{&1.id, &1}),
+      models_by_key: Map.new(filtered_models, &{{&1.provider, &1.id}, &1}),
+      aliases_by_key: build_aliases_index(filtered_models),
       providers: providers,
-      models: indexes.models_by_provider,
+      models: Enum.group_by(filtered_models, & &1.provider),
       base_models: all_models,
       filters: filters,
       prefer: config.prefer,
@@ -792,5 +791,19 @@ defmodule LLMDb.EngineOverrideTest do
       assert model.limits.context == 128_000
       assert model.limits.output == 4096
     end
+  end
+
+  defp build_aliases_index(models) do
+    models
+    |> Enum.flat_map(fn model ->
+      provider = model.provider
+      canonical_id = model.id
+      aliases = Map.get(model, :aliases, [])
+
+      Enum.map(aliases, fn alias_name ->
+        {{provider, alias_name}, canonical_id}
+      end)
+    end)
+    |> Map.new()
   end
 end
