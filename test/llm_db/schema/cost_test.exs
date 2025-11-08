@@ -24,8 +24,13 @@ defmodule LLMDb.Schema.CostTest do
         cache_read: 0.015,
         cache_write: 0.30,
         training: 3.00,
+        reasoning: 1.00,
         image: 1.25,
-        audio: 0.50
+        audio: 0.50,
+        input_audio: 0.75,
+        output_audio: 2.00,
+        input_video: 1.50,
+        output_video: 3.00
       }
 
       assert {:ok, result} = Zoi.parse(Cost.schema(), input)
@@ -34,8 +39,13 @@ defmodule LLMDb.Schema.CostTest do
       assert result.cache_read == 0.015
       assert result.cache_write == 0.30
       assert result.training == 3.00
+      assert result.reasoning == 1.00
       assert result.image == 1.25
       assert result.audio == 0.50
+      assert result.input_audio == 0.75
+      assert result.output_audio == 2.00
+      assert result.input_video == 1.50
+      assert result.output_video == 3.00
     end
 
     test "parses cost with integer values" do
@@ -95,6 +105,36 @@ defmodule LLMDb.Schema.CostTest do
       assert {:ok, result} = Zoi.parse(Cost.schema(), input)
       refute Map.has_key?(result, :audio)
     end
+
+    test "reasoning is optional" do
+      input = %{input: 0.15}
+      assert {:ok, result} = Zoi.parse(Cost.schema(), input)
+      refute Map.has_key?(result, :reasoning)
+    end
+
+    test "input_audio is optional" do
+      input = %{input: 0.15}
+      assert {:ok, result} = Zoi.parse(Cost.schema(), input)
+      refute Map.has_key?(result, :input_audio)
+    end
+
+    test "output_audio is optional" do
+      input = %{input: 0.15}
+      assert {:ok, result} = Zoi.parse(Cost.schema(), input)
+      refute Map.has_key?(result, :output_audio)
+    end
+
+    test "input_video is optional" do
+      input = %{input: 0.15}
+      assert {:ok, result} = Zoi.parse(Cost.schema(), input)
+      refute Map.has_key?(result, :input_video)
+    end
+
+    test "output_video is optional" do
+      input = %{input: 0.15}
+      assert {:ok, result} = Zoi.parse(Cost.schema(), input)
+      refute Map.has_key?(result, :output_video)
+    end
   end
 
   describe "invalid inputs" do
@@ -130,6 +170,31 @@ defmodule LLMDb.Schema.CostTest do
 
     test "rejects non-numeric audio" do
       input = %{audio: :invalid}
+      assert {:error, _} = Zoi.parse(Cost.schema(), input)
+    end
+
+    test "rejects non-numeric reasoning" do
+      input = %{reasoning: "1.00"}
+      assert {:error, _} = Zoi.parse(Cost.schema(), input)
+    end
+
+    test "rejects non-numeric input_audio" do
+      input = %{input_audio: "0.75"}
+      assert {:error, _} = Zoi.parse(Cost.schema(), input)
+    end
+
+    test "rejects non-numeric output_audio" do
+      input = %{output_audio: "2.00"}
+      assert {:error, _} = Zoi.parse(Cost.schema(), input)
+    end
+
+    test "rejects non-numeric input_video" do
+      input = %{input_video: "1.50"}
+      assert {:error, _} = Zoi.parse(Cost.schema(), input)
+    end
+
+    test "rejects non-numeric output_video" do
+      input = %{output_video: "3.00"}
       assert {:error, _} = Zoi.parse(Cost.schema(), input)
     end
   end

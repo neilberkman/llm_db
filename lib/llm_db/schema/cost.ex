@@ -3,7 +3,7 @@ defmodule LLMDb.Schema.Cost do
   Zoi schema for LLM model cost structure.
 
   Defines per-1M-token costs for various operations including input, output,
-  caching, training, and multimodal costs (image, audio).
+  caching, training, reasoning, and multimodal costs (image, audio, video).
   """
 
   @schema Zoi.object(%{
@@ -13,8 +13,13 @@ defmodule LLMDb.Schema.Cost do
             cache_read: Zoi.number() |> Zoi.optional(),
             cache_write: Zoi.number() |> Zoi.optional(),
             training: Zoi.number() |> Zoi.optional(),
+            reasoning: Zoi.number() |> Zoi.optional(),
             image: Zoi.number() |> Zoi.optional(),
-            audio: Zoi.number() |> Zoi.optional()
+            audio: Zoi.number() |> Zoi.optional(),
+            input_audio: Zoi.number() |> Zoi.optional(),
+            output_audio: Zoi.number() |> Zoi.optional(),
+            input_video: Zoi.number() |> Zoi.optional(),
+            output_video: Zoi.number() |> Zoi.optional()
           })
 
   @type t :: unquote(Zoi.type_spec(@schema))
