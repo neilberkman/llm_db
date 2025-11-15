@@ -162,7 +162,7 @@ defmodule LLMDB.ConsumerFilteringTest do
       # Override at runtime to allow Opus/Sonnet models instead
       {:ok, _snapshot} =
         LLMDB.load(
-          allow: %{anthropic: ["claude-3-opus-*", "claude-3.5-sonnet-*"]},
+          allow: %{anthropic: ["claude-3-opus*", "claude-*-opus-*", "claude-3-5-sonnet-*", "claude-*-sonnet-*"]},
           deny: %{}
         )
 
